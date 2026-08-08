@@ -50,8 +50,12 @@ jobs:
           test "$TAG" = "$PKG"
           grep -q "version: \"$TAG\"" CITATION.cff
       - run: uv build
+      # Name the artifact types explicitly: `uv build` also writes a dist/.gitignore,
+      # and a `dist/*` glob uploads it to the release as junk.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: dist/*
+          files: |
+            dist/*.whl
+            dist/*.tar.gz

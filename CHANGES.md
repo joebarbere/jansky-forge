@@ -5,6 +5,11 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+### Fixed
+- The release workflow uploaded `uv build`'s `dist/.gitignore` as a release asset (a `dist/*`
+  glob catches it). It now names `*.whl` and `*.tar.gz` explicitly; the stray asset was
+  removed from the `v0.1.0` release.
+
 ## [0.1.0] — M0, Foundation & catalog
 
 First release. Useful on day one: `jansky-forge show discovery-dish`.

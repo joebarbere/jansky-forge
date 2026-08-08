@@ -134,9 +134,22 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M0 is being built (targeting `v0.1.0`).** Shipped so far: `units`, `core`, `bands`,
-`apertures`, `catalog` with the audit, the CLI, the M0 skills and the physics-reviewer agent,
-CI + release workflows. The 700 mm dish golden test reproduces the station's own ~18 dBi / ~21°
-figures at 1420 MHz, which is the package's first end-to-end sanity anchor.
+**M0 shipped — `v0.1.0` is released** (2026-08-08,
+[release](https://github.com/joebarbere/jansky-forge/releases/tag/v0.1.0)). `units`, `core`,
+`bands`, `apertures`, `catalog` with the audit, the CLI, the M0 skills and the
+physics-reviewer agent, CI + release workflows. 66 tests, 99% coverage, green on all three
+OSes. The 700 mm dish golden test reproduces the station's own ~18 dBi / ~21° figures at
+1420 MHz, which is the package's first end-to-end sanity anchor.
 
-Nothing is published to GitHub yet — the repo is local, on a scaffold branch.
+Two things the first CI run taught us, both fixed and worth not re-learning:
+
+- **Windows consoles are cp1252** and cannot encode λ, °, or ² — the CLI crashed mid-output
+  until `cli._ensure_utf8_stdout()` reconfigured the stream. Setting `PYTHONIOENCODING` in CI
+  would have greened the job and left every real Windows user broken. A test now asserts those
+  characters are still present so nobody "fixes" a future report by removing them.
+- **`uv build` writes a `dist/.gitignore`**, which a `files: dist/*` glob happily uploaded to
+  the release as junk. The workflow now names `*.whl` and `*.tar.gz` explicitly.
+
+**M1 (horn designer) is next**: gain→dimensions synthesis in both directions, the Balanis
+aperture-phase-error correction that replaces the current optimum-flare assumption, and E/H
+pattern computation. See plan §5.
