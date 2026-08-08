@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "jansky-forge: Antenna design, build, and characterization for radio astronomy"
+abstract: >-
+  A cross-platform toolkit for designing, building, and characterizing
+  radio-astronomy antennas. Closed-form analytic models recompute in
+  microseconds so design exploration is interactive; a provenance-checked
+  catalog of known telescope builds (dishes and horns) provides starting
+  points; fabrication artifacts turn a design into cut metal; and measured
+  performance is reported beside — never merged into — model predictions.
+  Sibling of the jansky course, jansky-research, and jansky-observe.
+type: software
+authors:
+  - given-names: Joseph
+    family-names: Barbere
+    orcid: "https://orcid.org/0009-0008-3289-4447"
+    affiliation: "Independent researcher"
+version: "0.1.0"
+date-released: "2026-08-08"
+license: MIT
+repository-code: "https://github.com/joebarbere/jansky-forge"
+url: "https://github.com/joebarbere/jansky-forge"
+keywords:
+  - radio astronomy
+  - antenna design
+  - parabolic reflector
+  - horn antenna
+  - hydrogen line
+  - electromagnetics
+  - open-source software

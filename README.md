@@ -1,0 +1,124 @@
+# jansky-forge
+
+**Design, build, and characterize radio-astronomy antennas.** Pick a known telescope build,
+change a dimension, watch the numbers move — then get the fabrication drawings, and later put
+your measured performance next to the prediction.
+
+Fourth sibling of [`jansky`](https://github.com/joebarbere/jansky) (the course),
+[`jansky-research`](https://github.com/joebarbere/jansky-research) (original research), and
+[`jansky-observe`](https://github.com/joebarbere/jansky-observe) (station software).
+
+```console
+$ jansky-forge show discovery-dish
+```
+
+## Why this exists
+
+The open-source antenna world has excellent tools for *wire* antennas — NEC2 and its
+descendants, some with genuinely live feedback. It has almost nothing for the antennas radio
+astronomers actually build: dishes and horns. What exists for those is 1990s-frozen software,
+one-shot web calculators, or a spreadsheet in a forum post. And nothing anywhere connects the
+three things that matter:
+
+**design → fabrication → measurement**, in radio-astronomy units (G/T, SEFD, system
+temperature, time-to-detect) rather than ham-radio ones.
+
+That is the gap. See [`plans/jansky_forge.md`](plans/jansky_forge.md) for the full survey and
+roadmap.
+
+## How it stays fast
+
+Every design change recomputes in microseconds because the physics is closed-form, not because
+anything is cached. A 21 cm dish or horn is many wavelengths across — precisely the regime where
+textbook aperture theory is good to a few tenths of a dB and a full-wave solver would spend
+minutes to agree with it. Three tiers, and only the first one is ever in the interactive path:
+
+| Tier | Method | Speed | For |
+|---|---|---|---|
+| 1 | Closed-form analytic (NumPy) | µs–ms | Everything interactive. Dishes, horns, wire families |
+| 2 | Method of moments (pymininec; NEC2 optional) | seconds | On-demand validation of wire designs |
+| 3 | Full-wave *export* (openEMS/NEC decks) | offline | Rigor without owning a solver — we generate the input, we never run it inline |
+
+## The catalog
+
+Nobody should start from a blank sheet. `jansky-forge list` shows known builds — the KrakenRF
+Discovery Dish, published teaching horns, observatory student telescopes — each with its
+geometry, where that geometry came from, and honest caveats where a source did not state a
+number.
+
+Two rules make the catalog trustworthy:
+
+- **A number without a source is not printed.** Unverified dimensions are recorded as gaps, not
+  filled with plausible values. `make audit` enforces it; CI fails on any output.
+- **Published gains are cross-checks, not our claims.** Where a build publishes performance
+  figures, the test suite compares them against what our model computes from the geometry. A
+  disagreement gets recorded as a disagreement — never tuned away by adjusting an efficiency
+  until the numbers match.
+
+## Install
+
+```bash
+git clone https://github.com/joebarbere/jansky-forge
+cd jansky-forge
+make setup      # uv sync — pinned Python 3.12
+make test
+```
+
+## Use
+
+```bash
+jansky-forge bands                                  # the frequencies that matter, and why
+jansky-forge list --band hi                         # builds designed for the hydrogen line
+jansky-forge list --kind horn
+jansky-forge show discovery-dish                    # geometry, provenance, predicted performance
+jansky-forge show discovery-dish --json             # machine-readable
+jansky-forge characterize discovery-dish --band hi --band oh1667 --freq-mhz 1200
+```
+
+As a library:
+
+```python
+from jansky_forge import ParabolicDish, catalog
+
+# Start from a known build...
+dish = catalog.get("discovery-dish").model
+print(catalog.get("discovery-dish").characterize().summary())
+
+# ...or design your own. Every model is a frozen dataclass; characterize() is pure.
+mine = ParabolicDish(diameter_m=1.2, f_over_d=0.45, surface_rms_mm=3.0)
+char = mine.characterize(1_420_405_751.768)
+print(f"{char.gain_dbi:.1f} dBi, {char.hpbw_e_deg:.1f}° beam, A_e = {char.effective_area_m2:.2f} m²")
+for note in char.notes:
+    print("note:", note)      # models state their own validity limits
+```
+
+## Honesty rules
+
+The same standard as the sibling repos, applied to hardware:
+
+- **Predicted and measured never wear the same label.** From M8, real measurements sit beside
+  model output with separate provenance; a disagreement is reported, not reconciled.
+- **Models state their own limits.** Every `Characterization` carries `notes` — where the model
+  stops being trustworthy, which assumption is doing the work. The CLI prints them; a UI must
+  too.
+- **Efficiency is a budget, not a fudge factor.** Illumination, spillover, blockage, and surface
+  error are separate named terms because each is a different thing to *fix* in a real build.
+
+## Status
+
+**M0 (`v0.1.0`) — foundation and catalog.** The `AntennaModel` protocol, band definitions, the
+parabolic dish and pyramidal/conical horn analytic models, the catalog with provenance
+enforcement, and the CLI. Roadmap through M14 in
+[`plans/jansky_forge.md`](plans/jansky_forge.md); `v1.0.0` is tagged only once an antenna has
+been designed here, built from this tool's output, and measured back into it.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+## AI use disclosure
+
+This project is developed with [Claude Code](https://claude.com/claude-code) as a working
+collaborator, under the same review standards as the sibling repos: every formula names its
+source, every model states its validity limits, and the `antenna-physics-reviewer` agent reviews
+diffs that touch the physics.
