@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Cross-platform is a product promise, so it is a CI matrix, not a claim.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - name: Sync
+        run: uv sync
+      - name: Lint
+        run: uv run ruff check src/ tests/
+      - name: Format check
+        run: uv run ruff format --check src/ tests/
+      - name: Typecheck
+        run: uv run mypy
+      - name: Test + coverage floor
+        run: uv run pytest --cov=jansky_forge --cov-report=term-missing
+      # The catalog's honesty rules are executable: any entry missing a source URL or
+      # missing caveats on non-primary provenance fails the build.
+      - name: Catalog provenance audit
+        run: uv run python -c "import sys; from jansky_forge import catalog; msgs=list(catalog.audit()); [print(m) for m in msgs]; sys.exit(1 if msgs else 0)"
+      - name: CLI smoke
+        run: |
+          uv run jansky-forge bands
+          uv run jansky-forge list
+          uv run jansky-forge show discovery-dish
+      - name: Build sdist + wheel
+        run: uv build
+      - name: Upload dist artifact (linux leg only)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error

@@ -1,0 +1,14 @@
+# Environments and caches
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+
+# Build artifacts
+dist/
+*.egg-info/
+
+# Generated fabrication output (M2): templates, DXF, cut lists are produced on demand
+out/
