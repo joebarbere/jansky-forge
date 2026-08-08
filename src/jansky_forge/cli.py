@@ -10,10 +10,32 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections.abc import Sequence
 
 from jansky_forge import catalog
 from jansky_forge.bands import BANDS, get_band
+
+
+def _ensure_utf8_stdout() -> None:
+    """Make stdout carry λ, °, and ² on every platform.
+
+    Windows consoles still default to cp1252, which cannot encode the characters this
+    output is genuinely made of — wavelengths, degrees, square metres. The alternative
+    would be to spell them out for everyone, degrading the output on the two platforms
+    that were never broken, so instead the stream is reconfigured here.
+
+    Guarded because a captured or replaced stdout (pytest, a redirect wrapper) need not
+    be a ``TextIOWrapper``, and because reconfiguration can fail on an exotic stream —
+    neither is worth crashing over.
+    """
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is None:
+        return
+    try:
+        reconfigure(encoding="utf-8")
+    except (ValueError, OSError):  # pragma: no cover - platform-specific stream oddities
+        pass
 
 
 def _print_bands() -> None:
@@ -128,6 +150,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    _ensure_utf8_stdout()
     args = build_parser().parse_args(argv)
 
     if args.command == "bands":

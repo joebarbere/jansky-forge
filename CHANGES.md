@@ -33,6 +33,10 @@ First release. Useful on day one: `jansky-forge show discovery-dish`.
   fifteen milestones through M14, testing strategy, cross-repo contracts, open questions.
 
 ### Notes
+- The CLI reconfigures stdout to UTF-8 at startup. Windows consoles default to cp1252 and
+  cannot encode λ, ° or ² — the characters this output is genuinely made of. The three-OS CI
+  matrix caught this before the first tag; spelling the symbols out for everyone would have
+  been the wrong fix.
 - Dependency-light on purpose: the interactive tier is pure NumPy. Heavier tiers (matplotlib,
   scikit-rf, pymininec, FastAPI, `jansky`) arrive as optional extras with the milestones that
   need them.

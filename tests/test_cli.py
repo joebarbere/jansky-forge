@@ -99,3 +99,35 @@ def test_unknown_template_raises_with_alternatives():
 def test_no_subcommand_is_an_error():
     with pytest.raises(SystemExit):
         cli.main([])
+
+
+def test_output_uses_the_scientific_characters_it_means(capsys):
+    """The output genuinely contains λ, ° and ² — spelling them out would be the wrong fix.
+
+    Windows consoles default to cp1252 and cannot encode these, which crashed the CLI until
+    `_ensure_utf8_stdout` reconfigured the stream. This asserts the characters are still
+    there, so nobody "fixes" a future encoding report by degrading the output instead.
+    """
+    assert cli.main(["show", "discovery-dish"]) == 0
+    out = capsys.readouterr().out
+    assert "°" in out  # beamwidths
+    assert "²" in out  # effective area, m²
+    assert "λ" in out  # the model's electrically-small note
+
+
+def test_utf8_reconfiguration_tolerates_a_stream_that_cannot_do_it(monkeypatch):
+    """A captured or replaced stdout need not support reconfigure; that must not crash."""
+
+    class PlainStream:
+        def write(self, _s: str) -> int:
+            return 0
+
+    monkeypatch.setattr("sys.stdout", PlainStream())
+    cli._ensure_utf8_stdout()  # no reconfigure attribute — returns quietly
+
+    class FussyStream(PlainStream):
+        def reconfigure(self, **_kwargs: object) -> None:
+            raise ValueError("this stream refuses")
+
+    monkeypatch.setattr("sys.stdout", FussyStream())
+    cli._ensure_utf8_stdout()  # raises internally, swallowed
