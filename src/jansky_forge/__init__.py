@@ -29,6 +29,7 @@ from jansky_forge.apertures import ConicalHorn, ParabolicDish, PyramidalHorn
 from jansky_forge.bands import BANDS, Band, get_band
 from jansky_forge.core import AntennaModel, Characterization
 from jansky_forge.fabricate import Development, Packet, write_packet
+from jansky_forge.feeds import CosQFeed, HornFeed, best_f_over_d, design_probe, evaluate_feed
 from jansky_forge.horns import (
     ConicalDesign,
     PyramidalDesign,
@@ -46,13 +47,18 @@ __all__ = [
     "Development",
     "ConicalDesign",
     "ConicalHorn",
+    "CosQFeed",
     "ParabolicDish",
     "PyramidalDesign",
+    "HornFeed",
     "Packet",
     "PyramidalHorn",
     "__version__",
+    "best_f_over_d",
     "design_conical_horn",
     "design_pyramidal_horn",
+    "design_probe",
+    "evaluate_feed",
     "get_band",
     "realizability",
     "wavelength_m",

@@ -12,6 +12,8 @@ Fourth sibling of [`jansky`](https://github.com/joebarbere/jansky) (the course),
 $ jansky-forge show discovery-dish          # what does this antenna do?
 $ jansky-forge design --gain-dbi 18         # what should I build for 18 dBi?
 $ jansky-forge fabricate --gain-dbi 18 --out ./horn   # ...and how do I cut it?
+$ jansky-forge feed --f-over-d 0.35         # what feed does my dish want?
+$ jansky-forge probe --waveguide wr650      # where does the probe go?
 ```
 
 ## Why this exists
@@ -107,6 +109,17 @@ The same standard as the sibling repos, applied to hardware:
   error are separate named terms because each is a different thing to *fix* in a real build.
 
 ## Status
+
+**M3 (`v0.4.0`) — dish and feed system.** Efficiency stops being a number you type in. Give
+a dish a feed and it computes illumination, spillover, and edge taper, and tells you which
+term is hurting you. Feeds match to dishes in both directions, blockage comes from the
+physical feed and struts, and the waveguide probe and backshort are designed properly — the
+gap M2 named when it observed that a horn with no feed design is a nicely-shaped piece of
+metal.
+
+Two external anchors: the **−10.9 dB optimum edge taper emerges** from maximizing efficiency
+rather than being assumed, for every feed shape tried; and the probe design **reproduces a
+published, built 21 cm horn** to a third of a millimetre.
 
 **M2 (`v0.3.0`) — fabrication.** A design becomes shapes you can cut: exact flat
 developments, 1:1 printable templates tiled across ordinary paper, DXF for a laser, a cut

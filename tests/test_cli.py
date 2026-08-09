@@ -250,3 +250,49 @@ def test_fabricate_respects_an_explicit_frequency(tmp_path):
     assert cli.main(["fabricate", "--gain-dbi", "14", "--freq-mhz", "1612", "--out", str(out)]) == 0
     payload = json.loads((out / "design.json").read_text())
     assert payload["freq_hz"] == pytest.approx(1.612e9)
+
+
+# --------------------------------------------------------------------------------------
+# M3: feed and probe subcommands
+# --------------------------------------------------------------------------------------
+
+
+def test_feed_says_what_feed_a_dish_wants(capsys):
+    assert cli.main(["feed", "--f-over-d", "0.35"]) == 0
+    out = capsys.readouterr().out
+    assert "rim sits" in out
+    assert "half-power beamwidth near" in out
+    assert "eta_ap" in out
+
+
+def test_feed_evaluates_a_named_beamwidth(capsys):
+    assert cli.main(["feed", "--f-over-d", "0.4", "--feed-hpbw", "80"]) == 0
+    out = capsys.readouterr().out
+    assert "cos^2q model" in out
+    assert "edge taper" in out and "optimum -10.9" in out
+    assert "illumination efficiency" in out and "spillover efficiency" in out
+    assert "best dish would be f/D" in out
+
+
+def test_feed_evaluates_a_real_synthesized_horn(capsys):
+    """The M1-to-M3 join, reachable from the command line."""
+    assert cli.main(["feed", "--f-over-d", "0.35", "--horn-gain-dbi", "12"]) == 0
+    out = capsys.readouterr().out
+    assert "synthesized 12 dBi pyramidal horn" in out
+    assert "not rotationally symmetric" in out  # the approximation is surfaced
+    # A 12 dBi horn is too directive for an f/D 0.35 dish; the tool should say so.
+    assert "outer dish is barely lit" in out
+
+
+def test_probe_reproduces_the_published_build_from_the_command_line(capsys):
+    assert cli.main(["probe", "--waveguide", "146x117"]) == 0
+    out = capsys.readouterr().out
+    assert "52.8 mm" in out  # probe length, free-space quarter wave
+    assert "76.4 mm" in out  # backshort, quarter GUIDE wavelength
+    assert "cutoff frequency" in out
+    assert "common error" in out
+
+
+def test_probe_refuses_a_waveguide_below_cutoff():
+    with pytest.raises(ValueError, match="below this waveguide"):
+        cli.main(["probe", "--waveguide", "50x25"])

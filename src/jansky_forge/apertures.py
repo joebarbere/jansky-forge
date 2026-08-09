@@ -24,7 +24,7 @@ import math
 from dataclasses import dataclass
 from typing import ClassVar
 
-from jansky_forge import horns
+from jansky_forge import feeds, horns
 from jansky_forge.core import Characterization, characterization_from_gain
 from jansky_forge.horns import OPTIMUM_PHASE_DEVIATION_E, OPTIMUM_PHASE_DEVIATION_H
 from jansky_forge.units import C_M_S
@@ -101,6 +101,19 @@ class ParabolicDish:
     #: Ohmic/mismatch losses lumped: 1.0 unless you have a measured number.
     other_efficiency: float = 1.0
     beam_constant_deg: float = DISH_BEAM_CONSTANT_DEG
+    #: M3: a feed pattern. Given one, illumination and spillover are COMPUTED from it and
+    #: the two constants above are ignored — which is the point, since those constants are
+    #: exactly what changes when the feed or the f/D changes.
+    feed: feeds.FeedPattern | None = None
+    #: M3: physical blockage. Any non-zero value here computes ``blockage_efficiency``
+    #: instead of using the constant.
+    feed_blockage_diameter_m: float = 0.0
+    strut_count: int = 0
+    strut_width_m: float = 0.0
+    strut_length_m: float = 0.0
+    #: M3: reflector mesh opening, for the lambda/10 check. Advisory only — it changes no
+    #: number, because a real transmission coefficient needs wire diameter and weave.
+    mesh_opening_m: float = 0.0
 
     def __post_init__(self) -> None:
         if self.diameter_m <= 0:
@@ -138,21 +151,67 @@ class ParabolicDish:
     def characterize(self, freq_hz: float) -> Characterization:
         lam = 299_792_458.0 / freq_hz
         eta_surface = ruze_efficiency(self.surface_rms_mm / 1000.0, lam)
-        eta = (
-            self.illumination_efficiency
-            * self.spillover_efficiency
-            * self.blockage_efficiency
-            * self.other_efficiency
-            * eta_surface
-        )
+        theta0 = subtended_half_angle_deg(self.f_over_d)
+
+        notes: list[str] = []
+        detail_extra: dict[str, float] = {}
+
+        # --- illumination and spillover: computed from the feed when there is one -------
+        if self.feed is not None:
+            match = feeds.evaluate_feed(self.feed, f_over_d=self.f_over_d)
+            eta_illum = match.illumination_efficiency
+            eta_spill = match.spillover_efficiency
+            detail_extra["edge_taper_db"] = match.edge_taper_db
+            notes.append(
+                "Illumination and spillover are COMPUTED from the feed pattern, not assumed: "
+                f"edge taper {match.edge_taper_db:.1f} dB against the "
+                f"{feeds.OPTIMUM_EDGE_TAPER_DB:g} dB optimum."
+            )
+            notes.extend(match.notes)
+        else:
+            eta_illum = self.illumination_efficiency
+            eta_spill = self.spillover_efficiency
+            notes.append(
+                "Illumination and spillover are assumed constants. Give this dish a `feed` "
+                "to compute them from the actual pattern — they are what changes when the "
+                "feed or f/D changes."
+            )
+
+        # --- blockage: computed from physical parts when they are given ----------------
+        if self.feed_blockage_diameter_m > 0 or self.strut_count > 0:
+            eta_block = 1.0
+            if self.feed_blockage_diameter_m > 0:
+                eta_block *= feeds.central_blockage_efficiency(
+                    dish_diameter_m=self.diameter_m,
+                    blocker_diameter_m=self.feed_blockage_diameter_m,
+                )
+            if self.strut_count > 0:
+                eta_block *= feeds.strut_blockage_efficiency(
+                    dish_diameter_m=self.diameter_m,
+                    strut_count=self.strut_count,
+                    strut_width_m=self.strut_width_m,
+                    strut_length_m=self.strut_length_m,
+                )
+            notes.append(
+                f"Blockage computed from the physical feed and struts ({eta_block:.3f}); "
+                "an offset dish avoids this loss entirely."
+            )
+        else:
+            eta_block = self.blockage_efficiency
+
+        if self.mesh_opening_m > 0:
+            _, verdict = feeds.mesh_verdict(mesh_opening_m=self.mesh_opening_m, freq_hz=freq_hz)
+            notes.append(verdict + " (advisory: this does not change the numbers above)")
+
+        eta = eta_illum * eta_spill * eta_block * self.other_efficiency * eta_surface
         gain_linear = eta * (math.pi * self.diameter_m / lam) ** 2
         hpbw = self.beam_constant_deg * lam / self.diameter_m
 
-        notes = [
+        notes += [
             f"Beamwidth uses HPBW = {self.beam_constant_deg:g}·λ/D; the textbook range is 58–72 "
             "depending on edge taper, so treat this as ±10%.",
-            "Aperture efficiency is a product of assumed factors, not a measurement — "
-            "M7/M8 replace it with one derived from a Y-factor or transit measurement.",
+            "Efficiency here is model output, not a measurement — M7/M8 replace it with one "
+            "derived from a Y-factor or transit measurement.",
         ]
         if self.diameter_m / lam < 5.0:
             notes.append(
@@ -174,10 +233,14 @@ class ParabolicDish:
             detail={
                 "focal_length_m": self.focal_length_m,
                 "physical_area_m2": self.physical_area_m2,
+                "illumination_efficiency": eta_illum,
+                "spillover_efficiency": eta_spill,
+                "blockage_efficiency": eta_block,
                 "ruze_efficiency": eta_surface,
                 "ruze_loss_db": -10.0 * math.log10(eta_surface),
-                "subtended_half_angle_deg": subtended_half_angle_deg(self.f_over_d),
+                "subtended_half_angle_deg": theta0,
                 "diameter_wavelengths": self.diameter_m / lam,
+                **detail_extra,
             },
             notes=tuple(notes),
         )

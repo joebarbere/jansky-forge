@@ -13,7 +13,7 @@ import json
 import sys
 from collections.abc import Sequence
 
-from jansky_forge import catalog, fabricate, horns
+from jansky_forge import catalog, fabricate, feeds, horns
 from jansky_forge.bands import BANDS, get_band
 
 
@@ -230,6 +230,73 @@ def _print_fabricate(args) -> None:  # noqa: ANN001 - argparse namespace
     )
 
 
+def _print_feed(args) -> None:  # noqa: ANN001 - argparse namespace
+    freq_hz = args.freq_mhz * 1e6 if args.freq_mhz else get_band(args.band).freq_hz
+
+    if args.horn_gain_dbi is not None:
+        wg_a, wg_b = _parse_waveguide(args.waveguide)
+        horn = horns.design_pyramidal_horn(
+            gain_dbi=args.horn_gain_dbi, freq_hz=freq_hz, waveguide_a_m=wg_a, waveguide_b_m=wg_b
+        )
+        feed: feeds.FeedPattern = feeds.HornFeed(
+            aperture_a1_m=horn.aperture_a1_m,
+            aperture_b1_m=horn.aperture_b1_m,
+            rho1_m=horn.rho1_m,
+            rho2_m=horn.rho2_m,
+            freq_hz=freq_hz,
+        )
+        print(f"Feed: synthesized {args.horn_gain_dbi:g} dBi pyramidal horn")
+        print(f"  {horn.summary()}")
+    elif args.feed_hpbw is not None:
+        feed = feeds.CosQFeed.from_beamwidth(args.feed_hpbw)
+        print(f"Feed: cos^2q model with a {args.feed_hpbw:g} deg beamwidth (q = {feed.q:.2f})")
+    else:
+        wanted = feeds.best_feed_for_dish(f_over_d=args.f_over_d)
+        print(f"Dish f/D {args.f_over_d:g} at {freq_hz / 1e6:.3f} MHz")
+        print(f"  rim sits {wanted.subtended_half_angle_deg:.1f} deg off the feed axis")
+        print("\n  The feed it wants:")
+        for note in wanted.notes:
+            print(f"    - {note}")
+        print(f"\n  With that feed: {wanted.summary()}")
+        return
+
+    match = feeds.evaluate_feed(feed, f_over_d=args.f_over_d)
+    best = feeds.best_f_over_d(feed)
+    print(f"\n  On a dish of f/D {args.f_over_d:g}:")
+    print(f"    rim half-angle            {match.subtended_half_angle_deg:8.2f} deg")
+    print(
+        f"    edge taper                {match.edge_taper_db:8.2f} dB   "
+        f"(optimum {feeds.OPTIMUM_EDGE_TAPER_DB:g})"
+    )
+    print(f"    illumination efficiency   {match.illumination_efficiency:8.4f}")
+    print(f"    spillover efficiency      {match.spillover_efficiency:8.4f}")
+    print(f"    aperture efficiency       {match.aperture_efficiency:8.4f}")
+    if match.notes:
+        print("\n  notes:")
+        for note in match.notes:
+            print(f"    - {note}")
+    print(
+        f"\n  This feed's best dish would be f/D {best.f_over_d:.3f} "
+        f"(eta_ap {best.aperture_efficiency:.4f})."
+    )
+
+
+def _print_probe(args) -> None:  # noqa: ANN001 - argparse namespace
+    freq_hz = args.freq_mhz * 1e6 if args.freq_mhz else get_band(args.band).freq_hz
+    wg_a, wg_b = _parse_waveguide(args.waveguide)
+    design = feeds.design_probe(freq_hz=freq_hz, waveguide_a_m=wg_a, waveguide_b_m=wg_b)
+    print(f"Waveguide {wg_a * 1000:.1f} x {wg_b * 1000:.1f} mm at {freq_hz / 1e6:.3f} MHz")
+    print(f"\n  cutoff frequency (TE10)   {design.cutoff_freq_hz / 1e6:8.1f} MHz")
+    print(f"  guide wavelength          {design.guide_wavelength_m * 1000:8.1f} mm")
+    print(f"  free-space wavelength     {299_792_458.0 / freq_hz * 1000:8.1f} mm")
+    print("\n  build to:")
+    print(f"    probe length              {design.probe_length_m * 1000:8.1f} mm")
+    print(f"    probe to backshort        {design.backshort_distance_m * 1000:8.1f} mm")
+    print("\n  notes:")
+    for note in design.notes:
+        print(f"    - {note}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="jansky-forge",
@@ -292,6 +359,27 @@ def build_parser() -> argparse.ArgumentParser:
         "--thickness-mm", type=float, default=1.0, help="Sheet thickness (default 1.0)"
     )
 
+    p_feed = sub.add_parser(
+        "feed", help="Match a feed to a dish (M3): edge taper, illumination, spillover"
+    )
+    p_feed.add_argument("--f-over-d", type=float, required=True, help="Dish focal ratio")
+    p_feed.add_argument("--band", default="hi", help="Band slug (default: hi)")
+    p_feed.add_argument("--freq-mhz", type=float, help="Frequency, overrides --band")
+    p_feed.add_argument(
+        "--feed-hpbw", type=float, help="Evaluate a feed of this half-power beamwidth (deg)"
+    )
+    p_feed.add_argument(
+        "--horn-gain-dbi",
+        type=float,
+        help="Evaluate a synthesized pyramidal horn of this gain as the feed",
+    )
+    p_feed.add_argument("--waveguide", default="wr650", help="Waveguide for --horn-gain-dbi")
+
+    p_probe = sub.add_parser("probe", help="Design a waveguide feed probe and backshort (M3)")
+    p_probe.add_argument("--waveguide", default="wr650", help="Named standard or 'AxB' in mm")
+    p_probe.add_argument("--band", default="hi", help="Band slug (default: hi)")
+    p_probe.add_argument("--freq-mhz", type=float, help="Frequency, overrides --band")
+
     p_char = sub.add_parser(
         "characterize", help="Characterize a template across one or more frequencies"
     )
@@ -323,6 +411,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "fabricate":
         _print_fabricate(args)
+        return 0
+
+    if args.command == "feed":
+        _print_feed(args)
+        return 0
+
+    if args.command == "probe":
+        _print_probe(args)
         return 0
 
     template = catalog.get(args.slug)

@@ -5,6 +5,66 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.4.0] — M3, Dish & feed system
+
+Efficiency stops being a number you type in.
+
+M0 asked you to supply illumination and spillover as constants. Those constants are exactly
+what changes when you pick a different feed or a different f/D, so a tool that takes them as
+input cannot answer the question anyone actually has. M3 computes them.
+
+### Added
+- **`jansky_forge.feeds`** — the standard front-fed paraboloid integrals. Give a dish a
+  feed pattern and it reports illumination efficiency, spillover efficiency, edge taper, and
+  the resulting aperture efficiency, with every term exposed so you can see which one is
+  hurting you.
+- **`CosQFeed`**, the classic model (and `from_beamwidth`, since beamwidth is what you know
+  about a feed you own), and **`HornFeed`**, which uses a real M1 horn's *computed* patterns —
+  the join between designing a horn and putting it on a dish.
+- **Feed matching in both directions**: `best_f_over_d(feed)` for "I have this feed, what
+  dish shape do I want", and `best_feed_for_dish(f_over_d=...)` for "I have this dish, what
+  feed should I build" — which answers with a beamwidth you can then synthesize a horn to.
+- **Blockage** computed from physical parts: a central feed obstruction costs
+  `(1 - (d/D)^2)^2`, so the loss goes as the *square* of the blocked area fraction — worse
+  than the area suggests, and the reason offset dishes exist. Struts too.
+- **Mesh check** against the lambda/10 rule, deliberately advisory: it changes no number,
+  because a real transmission coefficient needs wire diameter and weave, and quoting one
+  from the opening size alone would be false precision.
+- **The waveguide probe and backshort** — the gap M2 named when it said a horn with no feed
+  design is a nicely-shaped piece of metal. Probe length is the free-space quarter wave;
+  the backshort sits a quarter *guide* wavelength away, and those are different numbers.
+- CLI: `jansky-forge feed --f-over-d 0.35` and `jansky-forge probe --waveguide wr650`.
+
+### Verified against
+- **The optimum edge taper emerges rather than being assumed.** Maximizing aperture
+  efficiency over rim angle lands at **-10.9 dB** for every feed shape tried (cos^2q with q
+  from 0.5 to 4, an eightfold range of directivity), with peak efficiency 0.82-0.85. That is
+  the textbook "-10 to -11 dB optimum edge illumination", and its near-invariance with feed
+  shape is exactly why the rule of thumb is trustworthy. Nothing in the optimizer targets a
+  taper — it maximizes efficiency and the taper falls out.
+- **The probe design reproduces a published, built antenna.** PhysicsOpenLab's 21 cm
+  oil-can horn uses a 52.5 mm probe 76.4 mm from the backshort; we compute 52.8 mm and
+  76.4 mm from its waveguide dimensions alone.
+
+### Known gaps, stated rather than papered over
+- **Conical horn patterns are still rules of thumb.** M1 computed conical *gain* exactly and
+  deferred the pattern; M3 needed it and deferred it again rather than inventing one.
+  `conical_horn_feed()` gives a usable path — a `cos^2q` model fitted to the rule-of-thumb
+  beamwidth — and its docstring says plainly that this is two approximations stacked. A
+  pyramidal horn through `HornFeed` uses its real pattern and is the better route where
+  either will do.
+- **A horn is not rotationally symmetric** and the reflector integrals assume it is.
+  `HornFeed` uses the geometric mean of the two principal planes, and says so in the notes of
+  every result it touches.
+- Offset-fed geometry is not modelled; only the blockage advantage is mentioned.
+
+### Performance
+Feed evaluation is 0.5 ms. Horn patterns are tabulated once per geometry and interpolated
+(accurate to under 0.01 dB), and the reflector integrals use fixed vectorized quadrature
+instead of an adaptive rule — together a 28x speedup over the first working version, which
+took 683 ms per optimization and would have broken the interactivity promise.
+
+
 ## [0.3.0] — M2, Fabrication
 
 The "build" leg. A design stops being a number and becomes shapes you can cut.
