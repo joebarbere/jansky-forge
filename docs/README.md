@@ -7,6 +7,7 @@ than when you happen to read it.
 
 | If you want to… | Read |
 |---|---|
+| Install it and learn the shape of the thing | **[Getting started](getting-started.md)** |
 | Avoid the mistakes that cost people antennas | **[Traps](traps.md)** |
 | Look up a number from memory | **[Rules of thumb](rules-of-thumb.md)** |
 | Actually build something, start to finish | **[Workflows](workflows.md)** |
@@ -14,6 +15,10 @@ than when you happen to read it.
 | Know what the tool can't do | **[Known limits](known-limits.md)** |
 | Check a number against its source | **[Verification log](verification-log.md)** |
 | Contribute without breaking the honesty rules | **[Honesty invariants](honesty-invariants.md)** |
+| Know what happens next, and what 1.0 means | **[Next steps](next-steps.md)** |
+
+**New here?** [Getting started](getting-started.md) → [Traps](traps.md) →
+[Workflows](workflows.md). That is about twenty minutes and covers most of what bites people.
 
 ## The five-minute version
 
@@ -30,6 +35,13 @@ Four facts that recur everywhere in this project:
    → [Lessons learned](lessons-learned.md#self-consistency-is-not-verification)
 4. **A prediction and a measurement are different kinds of claim** and must never be merged
    into one number. → [Honesty invariants](honesty-invariants.md)
+
+## Where the project stands
+
+All ten planned milestones (M0–M9) have shipped. **v1.0.0 is not a feature** — it is tagged
+once one antenna has been designed here, built from this tool's fabrication output, and
+measured back in. Every piece of that loop exists; what is left is a build.
+→ [Next steps](next-steps.md)
 
 ## Reference by module
 

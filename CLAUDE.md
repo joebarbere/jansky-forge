@@ -125,9 +125,11 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
     model's caveats**; tests enforce it.
   - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`, `feed`,
     `probe`, `sensitivity`, `sources`, `serve`.
-- `docs/` — nine milestones of traps, rules of thumb, workflows, lessons, known limits, the
-  verification log, and the honesty invariants. **Read `docs/traps.md` before touching the
-  physics**, and add to it whenever something bites.
+- `docs/` — ten milestones of accumulated knowledge: getting-started, traps, rules of thumb,
+  workflows, lessons learned, known limits, the verification log, honesty invariants, and
+  next steps. **Read `docs/traps.md` before touching the physics**, and add to it whenever
+  something bites. `docs/next-steps.md` is the handover document — start there after a gap.
+  Every example in `getting-started.md` is executed before it is committed.
 - `tests/` — pure, offline, no hardware and no network, ever. Golden values carry their
   arithmetic in a comment so a reader can check rather than trust.
 - `plans/jansky_forge.md` — the full plan: survey, tiers, all fifteen milestones, testing

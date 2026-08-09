@@ -111,10 +111,17 @@ The same standard as the sibling repos, applied to hardware:
 
 ## Documentation
 
-Nine milestones of accumulated knowledge, organised for lookup: **[docs/](docs/)** —
-[traps](docs/traps.md), [rules of thumb](docs/rules-of-thumb.md),
-[workflows](docs/workflows.md), [lessons learned](docs/lessons-learned.md),
-[known limits](docs/known-limits.md), [verification log](docs/verification-log.md).
+**[docs/](docs/)** — ten milestones of accumulated knowledge, organised for lookup.
+
+New here? **[Getting started](docs/getting-started.md)** →
+**[Traps](docs/traps.md)** → **[Workflows](docs/workflows.md)** is about twenty minutes and
+covers most of what bites people.
+
+Also: [rules of thumb](docs/rules-of-thumb.md) (numbers with their validity conditions),
+[lessons learned](docs/lessons-learned.md), [known limits](docs/known-limits.md),
+[verification log](docs/verification-log.md) (every externally-checked number),
+[honesty invariants](docs/honesty-invariants.md), and
+[next steps](docs/next-steps.md) (what v1.0.0 requires).
 
 ## Status
 
