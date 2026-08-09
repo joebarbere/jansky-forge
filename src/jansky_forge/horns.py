@@ -255,6 +255,9 @@ class PyramidalDesign:
     #: Balanis' rho_e / rho_h — apex to aperture edge along each flare.
     slant_e_m: float
     slant_h_m: float
+    #: Practical warnings. Synthesis is bounded by physics, which is a long way past bounded
+    #: by sense: 30 dBi at 20 MHz is geometrically fine and 205 m across.
+    notes: tuple[str, ...] = ()
 
     @property
     def phase_deviation_e(self) -> float:
@@ -389,6 +392,7 @@ def design_pyramidal_horn(
         # slant taken to the waveguide — computed in the properties below.
         slant_e_m=slant_e(rho1_m=r1, aperture_b1_m=b1),
         slant_h_m=slant_h(rho2_m=r2, aperture_a1_m=a1),
+        notes=_buildability_notes(a1, b1, axial),
     )
 
 
@@ -526,6 +530,7 @@ class ConicalDesign:
     slant_m: float
     axial_length_m: float
     gain_dbi: float
+    notes: tuple[str, ...] = ()
 
     def summary(self) -> str:
         return (
@@ -566,6 +571,7 @@ def design_conical_horn(*, gain_dbi: float, freq_hz: float) -> ConicalDesign:
         slant_m=slant,
         axial_length_m=axial,
         gain_dbi=gain_at(slant),
+        notes=_buildability_notes(d, axial),
     )
 
 
@@ -755,6 +761,37 @@ def pattern_beamwidths(
         max_theta_deg,
     )
     return 2.0 * e_hp, 2.0 * h_hp
+
+
+#: Largest dimension, in metres, beyond which a horn stops being something a person builds
+#: in a garage. Not a physical limit — a practical one, and stated as such.
+PRACTICAL_HORN_LIMIT_M = 3.0
+
+
+def _buildability_notes(*dimensions_m: float) -> tuple[str, ...]:
+    """Warn when a geometrically-valid design is not a practically-sane one.
+
+    Synthesis is bounded by physics, which is a very long way past bounded by sense: ask for
+    30 dBi at the Radio JOVE band and the equations happily return a 205-metre aperture. That
+    is a correct answer to the question asked and useless as advice, so the design says so
+    rather than letting the number stand unremarked.
+    """
+    largest = max(dimensions_m)
+    if largest <= PRACTICAL_HORN_LIMIT_M:
+        return ()
+    note = (
+        f"This design is {largest:.1f} m at its largest dimension. That is a correct answer "
+        "to the gain you asked for, not a sensible antenna to build: above roughly "
+        f"{PRACTICAL_HORN_LIMIT_M:g} m a horn stops being garage-scale."
+    )
+    if largest > 20.0:
+        return (
+            note,
+            "At this size a reflector is the right antenna — a dish reaches the same gain "
+            "with a fraction of the metal, which is precisely why horns are feeds and dishes "
+            "are telescopes.",
+        )
+    return (note,)
 
 
 # --------------------------------------------------------------------------------------

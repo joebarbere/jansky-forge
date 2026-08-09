@@ -5,6 +5,43 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.10.0] — M9, Interactive UI, and the documentation
+
+Everything before this was correct. This is the milestone that makes it *pleasant*, which
+matters more than it sounds: a design tool you enjoy poking is a design tool you learn from.
+
+### Added
+- **A web UI** (`jansky-forge serve`, optional extra `[ui]`): catalogue browser with full
+  provenance, a slider-driven horn designer that recomputes live, server-rendered SVG
+  patterns, and feed matching.
+- **`docs/`** — everything learned across nine milestones, organised so it is findable:
+  traps, rules of thumb, workflows, lessons learned, known limits, the verification log, and
+  the honesty invariants.
+
+### Three deliberate departures from the plan's sketch
+The plan said "FastAPI + htmx + a canvas module". What shipped is FastAPI, about thirty lines
+of inline vanilla JavaScript, and server-rendered SVG:
+
+- **No htmx and no charting library.** Synthesis takes 0.12 ms, so an HTTP round trip is
+  dominated by the network — there is nothing for a client-side renderer to accelerate.
+- **No CDN, no build step.** The tool works on a laptop in a field with no signal, which is
+  where antennas get built. A test asserts no page references anything external.
+- **SVG, not matplotlib.** M2 already writes SVG; adding a rendering dependency for a line
+  and an axis would be a poor trade.
+
+### The rule the UI inherits
+**A model's caveats are displayed, not hidden for tidiness.** A polished interface is the most
+tempting place to drop them, precisely because a designed-looking number is more readily
+believed. Tests assert that the Discovery Dish page shows both the vendor's missing-gain
+caveat and the model's electrically-small warning, and that the JSON API carries them too.
+
+### Found while building the UI
+Asking for 30 dBi at the Radio JOVE band returns a **205-metre aperture** — geometrically
+valid, practically absurd. Synthesis is bounded by physics, which is a long way past bounded
+by sense. Both design types now carry buildability notes, and because the *model* carries
+them rather than the presenter, the CLI gained the warning too.
+
+
 ## [0.9.0] — M8, On-sky characterization
 
 M7 read a vector network analyser, which tells you whether the antenna is *matched*. A

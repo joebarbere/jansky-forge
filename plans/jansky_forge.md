@@ -134,7 +134,7 @@ workflow exist from M0 so that is true from the first tag. Version lives in
 | `v0.7.0` | **M6 — Tier-2 MoM validation** ✅ shipped 2026-08-09 | The `MomBackend` protocol + pymininec backend; analytic-vs-MoM pattern overlay; optional subprocess NEC2; an Arcanum-shaped seam. The button that says "check my closed-form answer against real numerics" |
 | `v0.8.0` | **M7 — Measurement ingest** ✅ shipped 2026-08-09 | scikit-rf dependency; NanoVNA/LiteVNA Touchstone import; measured SWR/impedance/S11 versus predicted, on one plot with separate provenance; match networks; cable-loss budgets |
 | `v0.9.0` | **M8 — On-sky characterization** ✅ shipped 2026-08-09 | The loop closes: Y-factor Tsys, drift-scan beam maps, aperture efficiency and SEFD from a Sun or Cas A transit — computed from **jansky-observe observation bundles**, so a real antenna's measured beam lands beside the model's predicted beam |
-| `v0.10.0` | **M9 — Interactive UI** | FastAPI + htmx + a canvas module (the proven sibling stack): catalog browser, slider-driven design with live recompute, pattern plots, side-by-side design comparison. The moment the tool becomes pleasant rather than merely correct |
+| `v0.10.0` | **M9 — Interactive UI** ✅ shipped 2026-08-09 | FastAPI + htmx + a canvas module (the proven sibling stack): catalog browser, slider-driven design with live recompute, pattern plots, side-by-side design comparison. The moment the tool becomes pleasant rather than merely correct |
 | `v0.11.0` | **M10 — Sweeps & optimization** | Parametric sweeps with plots, Nelder-Mead/GA optimizers over any parameter set, constraint-driven design ("maximize G/T subject to D ≤ 1.2 m and it must fit through a door"), Pareto fronts |
 | `v0.12.0` | **M11 — Full-wave export** | Generate runnable openEMS Python decks and NEC input cards from any design; import the results back for comparison. Rigor without owning a solver |
 | `v0.13.0` | **M12 — Site & environment** | Ground-reflection modelling, horizon/terrain masks, an RFI-aware siting helper fed by `jansky-observe` HackRF sweeps, wind loading and mount stiffness, radome and weather effects, thermal expansion versus surface tolerance |
@@ -183,6 +183,20 @@ Helical, log-periodic and Moxon antennas are absent entirely rather than approxi
 The M6 entry ticket is already written: both GRAVES catalogue entries carry their full
 published element geometry in their caveats, unused, waiting for a solver that can consume
 it. So is the JOVE dual-dipole's 1 dB mutual-coupling shortfall.
+
+### M9 postscript (2026-08-09)
+
+Shipped without htmx, without a charting library and without a CDN. Tier-1 synthesis is
+0.12 ms, so an HTTP round trip is network-bound and there is nothing for a client-side
+renderer to accelerate; thirty lines of inline JavaScript and server-rendered SVG do the job
+and keep the tool working offline. The plan's "canvas module" was not needed and is not
+missed.
+
+Building the UI also surfaced that synthesis will cheerfully return a 205 m horn — bounded by
+physics, not by sense — so both design types now carry buildability notes.
+
+`docs/` landed with this milestone: nine milestones of traps, rules of thumb and lessons,
+organised for lookup rather than reading.
 
 ## 6. Testing strategy
 
