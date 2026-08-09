@@ -87,7 +87,7 @@ src/jansky_forge/
 ├── catalog.py      known builds + provenance discipline             [M0]
 ├── cli.py          the command line                                 [M0]
 ├── horns/          synthesis, phase error, patterns                 [M1]
-├── fabricate/      templates, DXF, cut lists, BOM                   [M2]
+├── fabricate/      geometry, svg (tiled 1:1), dxf, cutlist, packet   [M2] ✅
 ├── feeds/          feed↔dish matching, taper, spillover             [M3]
 ├── sensitivity/    G/T, SEFD, Tsys, radiometer                      [M4]
 ├── wires/          dipole, yagi, helix, LPDA, arrays                [M5]
@@ -127,7 +127,7 @@ workflow exist from M0 so that is true from the first tag. Version lives in
 |---|---|---|
 | `v0.1.0` | **M0 — Foundation & catalog** ✅ shipped 2026-08-08 | Package, CI, release workflow, the `AntennaModel` protocol, bands, dish + horn analytic models, the catalog with the Discovery Dish and known builds, the CLI, `/verify` + `/release` + the design skills. Useful on day one: `jansky-forge show discovery-dish` |
 | `v0.2.0` | **M1 — Horn designer** ✅ shipped 2026-08-08 | Synthesis *both directions* (gain→dimensions and dimensions→performance) for pyramidal and conical horns; Balanis aperture-phase-error correction replacing the optimum-flare assumption; E/H-plane pattern computation; golden tests against W1GHZ tables and published amateur builds |
-| `v0.3.0` | **M2 — Fabrication** | The artifacts that turn a design into metal: printable fold-up templates (SVG/PDF, tiled to A4/Letter), DXF export, cut lists with kerf allowance, a bill of materials, and assembly notes. The "build" leg of the name |
+| `v0.3.0` | **M2 — Fabrication** ✅ shipped 2026-08-08 | The artifacts that turn a design into metal: printable fold-up templates (SVG/PDF, tiled to A4/Letter), DXF export, cut lists with kerf allowance, a bill of materials, and assembly notes. The "build" leg of the name |
 | `v0.4.0` | **M3 — Dish & feed system** | f/D ↔ subtended angle ↔ edge taper ↔ illumination/spillover as a solved system rather than assumed constants; feed selection and matching (which horn belongs on which dish); offset geometry; strut blockage; mesh transparency; focal-point placement |
 | `v0.5.0` | **M4 — Sensitivity: telescope figures of merit** | G/T, SEFD, Tsys budget (feed + LNA + cable + spillover + sky), the radiometer equation, time-to-detect for a named source, and "how big a dish do I need to see X?" solved backwards. Optional `jansky` dependency lands here for the course's radiometer helpers |
 | `v0.6.0` | **M5 — Wire antennas & arrays** | Dipole, folded dipole, ground-plane, Yagi-Uda, Moxon, helical, log-periodic, plus simple arrays and ground-reflection gain. Unlocks the **Radio JOVE dual-dipole and meteor-scatter yagi catalog entries** held back from M0 |
@@ -190,7 +190,7 @@ Two things worth carrying forward:
 | `/new-antenna` | skill | Scaffold a new antenna family: model + protocol conformance + golden tests + docs | M0 |
 | `antenna-physics-reviewer` | agent | Read-only review of any diff touching a model: unit bugs (10 vs 20·log10, mm vs m, degrees vs radians), formula provenance against Balanis/Kraus, validity-limit notes present | M0 |
 | `/simple-english` | skill (vendored, MIT) | ASD-STE100 Simplified Technical English for reader-facing prose — README, install steps, release notes, and above all M2's fabrication instructions. Explicitly **not** for model notes or catalog caveats, where its modal restrictions would strip calibrated uncertainty | added 2026-08-08 |
-| `/fabrication-packet` | skill | Drive the M2 exporters and pre-flight the result (scale check, tiling, kerf, material fit) | M2 |
+| `/fabrication-packet` | skill | Drive the M2 exporters and pre-flight the result (scale check, tiling, kerf, material fit) | ✅ M2 |
 | `/validate-model` | skill | Cross-check a design: analytic vs Tier-2 MoM vs any published figure, reporting disagreements | M6 |
 | `/characterize` | skill | The measured-vs-predicted workflow over VNA files and jansky-observe bundles | M7 |
 | `rf-measurement-analyst` | agent | The measurement persona: VNA calibration pitfalls, Y-factor method, transit-based aperture efficiency | M7 |

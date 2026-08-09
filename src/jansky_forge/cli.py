@@ -13,7 +13,7 @@ import json
 import sys
 from collections.abc import Sequence
 
-from jansky_forge import catalog, horns
+from jansky_forge import catalog, fabricate, horns
 from jansky_forge.bands import BANDS, get_band
 
 
@@ -186,6 +186,50 @@ def _print_design(args) -> None:  # noqa: ANN001 - argparse namespace
     )
 
 
+def _print_fabricate(args) -> None:  # noqa: ANN001 - argparse namespace
+    freq_hz = args.freq_mhz * 1e6 if args.freq_mhz else get_band(args.band).freq_hz
+    design: horns.ConicalDesign | horns.PyramidalDesign
+    if args.shape == "conical":
+        design = horns.design_conical_horn(gain_dbi=args.gain_dbi, freq_hz=freq_hz)
+    else:
+        wg_a, wg_b = _parse_waveguide(args.waveguide)
+        design = horns.design_pyramidal_horn(
+            gain_dbi=args.gain_dbi, freq_hz=freq_hz, waveguide_a_m=wg_a, waveguide_b_m=wg_b
+        )
+
+    packet = fabricate.write_packet(
+        design,
+        args.out,
+        seam_allowance_mm=args.seam_mm,
+        kerf_mm=args.kerf_mm,
+        tool=args.tool,
+        material_thickness_mm=args.thickness_mm,
+        page=args.page,
+        landscape=args.landscape,
+    )
+
+    print(design.summary())
+    print(f"\n{packet.summary()}\n")
+    print("  templates:")
+    for label, sheets, width, height in packet.templates:
+        print(f"    {label:<32} {width:7.0f} x {height:<7.0f} mm   {sheets:3d} sheet(s)")
+    print(
+        f"\n  material: {packet.cutlist.total_area_m2:.4f} m² of parts, "
+        f"{packet.cutlist.total_cut_length_mm / 1000:.2f} m of cutting"
+    )
+    print("\n  read cutlist.md first, then assembly.md.")
+    if packet.sheets > 20:
+        print(
+            f"\n  NOTE: {packet.sheets} sheets is a lot of taping. A larger paper size "
+            "(--page a3) or a print shop\n  will be quicker and more accurate — every taped "
+            "joint is a chance to introduce error."
+        )
+    print(
+        "\n  Print at 100% / 'Actual size' and measure the 100 mm ruler on each sheet\n"
+        "  BEFORE cutting. A 'fit to page' print looks perfect and is a few percent small."
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="jansky-forge",
@@ -222,6 +266,32 @@ def build_parser() -> argparse.ArgumentParser:
         "wr284, wr90) or 'AxB' in mm, e.g. '165.1x82.55'",
     )
 
+    p_fab = sub.add_parser(
+        "fabricate",
+        help="Write a full fabrication packet (M2): 1:1 templates, DXF, cut list, assembly",
+    )
+    p_fab.add_argument("--gain-dbi", type=float, required=True, help="Target gain in dBi")
+    p_fab.add_argument("--out", required=True, help="Directory to write the packet into")
+    p_fab.add_argument("--band", default="hi", help="Design band slug (default: hi)")
+    p_fab.add_argument("--freq-mhz", type=float, help="Design frequency, overrides --band")
+    p_fab.add_argument("--shape", choices=["pyramidal", "conical"], default="pyramidal")
+    p_fab.add_argument("--waveguide", default="wr650", help="Waveguide for a pyramidal horn")
+    p_fab.add_argument(
+        "--page", default="a4", help=f"Paper size: {', '.join(sorted(fabricate.PAGE_SIZES))}"
+    )
+    p_fab.add_argument("--landscape", action="store_true", help="Rotate the paper")
+    p_fab.add_argument(
+        "--seam-mm", type=float, default=0.0, help="Seam allowance on sloped edges (mm)"
+    )
+    p_fab.add_argument(
+        "--tool",
+        help=f"Cutting tool, sets kerf: {', '.join(sorted(fabricate.TYPICAL_KERF_MM))}",
+    )
+    p_fab.add_argument("--kerf-mm", type=float, default=0.0, help="Kerf width if not using --tool")
+    p_fab.add_argument(
+        "--thickness-mm", type=float, default=1.0, help="Sheet thickness (default 1.0)"
+    )
+
     p_char = sub.add_parser(
         "characterize", help="Characterize a template across one or more frequencies"
     )
@@ -249,6 +319,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "design":
         _print_design(args)
+        return 0
+
+    if args.command == "fabricate":
+        _print_fabricate(args)
         return 0
 
     template = catalog.get(args.slug)

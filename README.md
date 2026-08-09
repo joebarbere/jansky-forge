@@ -11,6 +11,7 @@ Fourth sibling of [`jansky`](https://github.com/joebarbere/jansky) (the course),
 ```console
 $ jansky-forge show discovery-dish          # what does this antenna do?
 $ jansky-forge design --gain-dbi 18         # what should I build for 18 dBi?
+$ jansky-forge fabricate --gain-dbi 18 --out ./horn   # ...and how do I cut it?
 ```
 
 ## Why this exists
@@ -106,6 +107,15 @@ The same standard as the sibling repos, applied to hardware:
   error are separate named terms because each is a different thing to *fix* in a real build.
 
 ## Status
+
+**M2 (`v0.3.0`) — fabrication.** A design becomes shapes you can cut: exact flat
+developments, 1:1 printable templates tiled across ordinary paper, DXF for a laser, a cut
+list with an honest kerf and material budget, assembly steps, and a `design.json` that ties
+the shapes back to the prediction that produced them.
+
+Every printed sheet carries a **100 mm ruler** and the instruction to measure it first. A
+printer set to "fit to page" shrinks the drawing a few percent — invisible on screen,
+invisible on paper, and ruinous once the metal is cut.
 
 **M1 (`v0.2.0`) — the horn designer.** Horns are now real physics rather than an assumed
 efficiency: exact aperture phase error (so the model correctly says an *over-flared horn

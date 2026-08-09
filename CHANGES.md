@@ -5,6 +5,51 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.3.0] — M2, Fabrication
+
+The "build" leg. A design stops being a number and becomes shapes you can cut.
+
+### Added
+- **`jansky_forge.fabricate`** — exact flat developments of both horn types. A pyramidal
+  horn unrolls into four trapezoidal panels; a conical horn into an annular sector. Both are
+  derived, not approximated: a horn's surface is developable, so the unrolling is exact.
+- **1:1 printable SVG templates**, tiled across ordinary paper with registration marks and
+  overlap guides, **one template set per panel** rather than one giant composite — you print
+  the piece you are about to cut.
+- **A 100 mm ruler on every single sheet**, with the instruction to measure it before
+  cutting. A printer set to "fit to page" shrinks a drawing a few percent; that is invisible
+  on screen, invisible on paper, and ruinous after the metal is cut. This is the cheapest
+  guard against the most expensive mistake in the whole project.
+- **DXF R12** output with cut and fold on separate layers, `$INSUNITS` declared as
+  millimetres, and true `ARC` entities for cone developments. No dependencies added.
+- **Cut list** with per-panel stock sizes, material and kerf budget, and a **bill of
+  materials that states why each item is there** — including that a horn seam must be
+  electrically continuous, because a gap in a horn wall is a slot, and slots radiate.
+- **Assembly steps** as a checklist, ending with the reminders that the gain is a prediction
+  rather than a measurement, and that a horn which looks right can still be badly matched.
+- **`design.json`** in every packet: the provenance record tying the shapes back to the
+  design that produced them, so a measured antenna can later be compared against what it was
+  meant to be (M7/M8).
+- `jansky-forge fabricate --gain-dbi 18 --out ./horn` writes the whole packet, reports the
+  sheet count per template, and warns when a template needs an unreasonable amount of taping.
+- The `/fabrication-packet` skill, with a pre-flight that checks sheet count, stock fit,
+  kerf double-compensation, and realizability before anyone prints.
+
+### Details worth knowing
+- **Seam allowance is applied perpendicular to the sloped edges**, not as a horizontal
+  offset. On a steeply flared horn the two differ, and the naive version leaves the flange
+  narrow — the kind of error that only appears once the metal is cut.
+- **Kerf is reported, never silently applied.** Hand tools are guided to one side of the
+  line; lasers and waterjets compensate in software. Applying it twice is a real and common
+  error, so the cut list says so instead of adjusting anybody's dimensions.
+- Cone developments are checked by a property we did not impose: the sector angle is chosen
+  so the *outer* arc equals the aperture circumference, and the inner arc then equals the
+  throat circumference by similar triangles.
+- The panel corner edge is verified to be the same length measured on either adjoining
+  panel. That equality is the difference between four shapes that assemble and four that do
+  not.
+
+
 ### Added
 - Vendored the third-party `simple-english` skill (ASD-STE100 Simplified Technical English;
   MIT, AminBlg/SimpleEnglish, pinned commit). Kept in git rather than installed globally so

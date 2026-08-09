@@ -191,3 +191,62 @@ def test_show_reports_the_non_buildable_catalog_entry(capsys):
     out = capsys.readouterr().out
     assert "NOT a single buildable pyramidal horn" in out
     assert "phase_deviation_e" in out
+
+
+# --------------------------------------------------------------------------------------
+# M2: the fabricate subcommand
+# --------------------------------------------------------------------------------------
+
+
+def test_fabricate_writes_a_packet_and_reports_what_to_print(capsys, tmp_path):
+    out = tmp_path / "horn15"
+    assert cli.main(["fabricate", "--gain-dbi", "15", "--out", str(out), "--tool", "jigsaw"]) == 0
+    text = capsys.readouterr().out
+    assert "templates:" in text
+    assert "E-flare panel" in text and "H-flare panel" in text
+    assert "sheet(s)" in text
+    assert "material:" in text
+    # The scale warning is the whole point of a printed template.
+    assert "Actual size" in text and "100 mm ruler" in text
+    for name in ("cutlist.md", "assembly.md", "template.dxf", "design.json"):
+        assert (out / name).exists()
+    assert list(out.glob("*.svg"))
+
+
+def test_fabricate_warns_when_the_template_needs_a_lot_of_taping(capsys, tmp_path):
+    """A 22 dBi horn on A4 runs to dozens of sheets; say so rather than let it print."""
+    assert cli.main(["fabricate", "--gain-dbi", "22", "--out", str(tmp_path / "big")]) == 0
+    text = capsys.readouterr().out
+    assert "sheets is a lot of taping" in text
+    assert "--page a3" in text
+
+
+def test_fabricate_conical_and_seam_allowance(capsys, tmp_path):
+    out = tmp_path / "cone"
+    assert (
+        cli.main(
+            [
+                "fabricate",
+                "--gain-dbi",
+                "16",
+                "--shape",
+                "conical",
+                "--out",
+                str(out),
+                "--seam-mm",
+                "8",
+                "--page",
+                "a3",
+            ]
+        )
+        == 0
+    )
+    assert "Cone wall" in capsys.readouterr().out
+    assert "Roll the sector" in (out / "assembly.md").read_text()
+
+
+def test_fabricate_respects_an_explicit_frequency(tmp_path):
+    out = tmp_path / "oh"
+    assert cli.main(["fabricate", "--gain-dbi", "14", "--freq-mhz", "1612", "--out", str(out)]) == 0
+    payload = json.loads((out / "design.json").read_text())
+    assert payload["freq_hz"] == pytest.approx(1.612e9)
