@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections.abc import Sequence
 
 from jansky_forge import catalog, fabricate, feeds, horns
+from jansky_forge import sensitivity as sens
+from jansky_forge.apertures import ParabolicDish
 from jansky_forge.bands import BANDS, get_band
 
 
@@ -297,6 +300,124 @@ def _print_probe(args) -> None:  # noqa: ANN001 - argparse namespace
         print(f"    - {note}")
 
 
+def _feed_from_match_notes(match: feeds.FeedMatch) -> feeds.CosQFeed:
+    """Recover the cos^2q feed that `best_feed_for_dish` settled on.
+
+    It reports the wanted beamwidth in prose for a human; this re-derives the model from
+    the efficiency it achieved, so the CLI evaluates the same feed the matcher chose rather
+    than an approximation of it.
+    """
+    from scipy.optimize import minimize_scalar
+
+    result = minimize_scalar(
+        lambda q: -feeds.aperture_efficiency(feeds.CosQFeed(q=q), match.subtended_half_angle_deg),
+        bounds=(0.1, 30.0),
+        method="bounded",
+    )
+    return feeds.CosQFeed(q=result.x)
+
+
+def _print_sensitivity(args) -> None:  # noqa: ANN001 - argparse namespace
+    freq_hz = args.freq_mhz * 1e6 if args.freq_mhz else get_band(args.band).freq_hz
+
+    if args.template:
+        template = catalog.get(args.template)
+        model = template.model
+        if not isinstance(model, ParabolicDish):
+            raise SystemExit(
+                f"{args.template} is a {template.kind}; --template needs a dish. "
+                "Use --diameter-m for an arbitrary aperture."
+            )
+        diameter, f_over_d = model.diameter_m, model.f_over_d
+        label = template.name
+    elif args.diameter_m:
+        diameter, f_over_d, label = args.diameter_m, args.f_over_d, f"{args.diameter_m:g} m dish"
+    else:
+        raise SystemExit("give either --template or --diameter-m")
+
+    theta0 = 2 * math.degrees(math.atan(1.0 / (4.0 * f_over_d)))
+    if args.feed_hpbw:
+        feed = feeds.CosQFeed.from_beamwidth(args.feed_hpbw)
+        feed_label = f"a {args.feed_hpbw:g} deg feed"
+    else:
+        # No feed given: use the one M3 says this dish wants, so the numbers describe a
+        # sensibly-fed telescope rather than an arbitrary one.
+        wanted = feeds.best_feed_for_dish(f_over_d=f_over_d)
+        feed = _feed_from_match_notes(wanted)
+        feed_label = f"its ideal {feed.half_power_beamwidth_deg:.0f} deg feed (M3)"
+    dish = ParabolicDish(diameter_m=diameter, f_over_d=f_over_d, feed=feed)
+    char = dish.characterize(freq_hz)
+
+    receiver = sens.cascade_noise_temperature_k(
+        [
+            sens.Stage.loss("pre-LNA loss", loss_db=args.pre_lna_loss_db),
+            sens.Stage.amplifier("LNA", gain_db=30.0, noise_figure_db=args.lna_nf_db),
+            sens.Stage.amplifier("backend", gain_db=20.0, noise_figure_db=6.0),
+        ]
+    )
+    tsys = sens.system_temperature(
+        freq_hz=freq_hz,
+        receiver_k=receiver,
+        spillover_efficiency=feeds.spillover_efficiency(feed, theta0),
+    )
+
+    print(f"{label} at {freq_hz / 1e6:.3f} MHz, with {feed_label}")
+    print(f"  {char.summary()}")
+    print(f"\n  {tsys.summary()}")
+    print(
+        f"\n  SEFD                      {sens.sefd_jy(tsys.total_k, char.effective_area_m2):12,.0f} Jy"
+    )
+    print(f"  G/T                       {sens.g_over_t_db(char.gain_dbi, tsys.total_k):12.2f} dB/K")
+    print(
+        f"  sensitivity               {sens.sensitivity_k_per_jy(char.effective_area_m2):12.3e} K/Jy"
+    )
+    noise = sens.radiometer_sensitivity_k(tsys.total_k, args.bandwidth_hz, args.integration_s)
+    print(
+        f"  noise in {args.bandwidth_hz / 1e6:g} MHz x {args.integration_s:g} s    {noise:12.5f} K"
+    )
+
+    for note in tsys.notes:
+        print(f"\n  - {note}")
+
+    if args.flux_jy or args.brightness_k:
+        source = sens.RadioSource(
+            slug="cli",
+            name=(
+                f"{args.flux_jy:g} Jy point source"
+                if args.flux_jy
+                else f"{args.brightness_k:g} K extended emission"
+            ),
+            flux_jy=args.flux_jy,
+            reference_freq_hz=freq_hz,
+            brightness_temp_k=args.brightness_k,
+            source="given on the command line",
+        )
+        estimate = sens.detect(
+            source,
+            effective_area_m2=char.effective_area_m2,
+            tsys_k=tsys.total_k,
+            bandwidth_hz=args.bandwidth_hz,
+            integration_s=args.integration_s,
+            beam_solid_angle_sr=char.beam_solid_angle_sr,
+        )
+        print(f"\n  {estimate.summary()}")
+        if estimate.time_to_snr5_s is not None:
+            seconds = estimate.time_to_snr5_s
+            if seconds < 1:
+                pretty = "under a second — thermal noise is not your limitation here"
+            elif seconds < 120:
+                pretty = f"{seconds:.1f} s"
+            elif seconds < 7200:
+                pretty = f"{seconds / 60:.1f} min"
+            elif seconds < 172800:
+                pretty = f"{seconds / 3600:.1f} h"
+            else:
+                pretty = f"{seconds / 86400:.1f} days — which is a design problem, not a plan"
+            print(f"    time to SNR 5: {pretty}")
+        for note in estimate.notes:
+            print(f"    - {note}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="jansky-forge",
@@ -380,6 +501,29 @@ def build_parser() -> argparse.ArgumentParser:
     p_probe.add_argument("--band", default="hi", help="Band slug (default: hi)")
     p_probe.add_argument("--freq-mhz", type=float, help="Frequency, overrides --band")
 
+    p_sens = sub.add_parser(
+        "sensitivity",
+        help="Telescope figures of merit (M4): Tsys, SEFD, G/T, and will you see it",
+    )
+    p_sens.add_argument("--template", help="Catalog slug to use as the antenna (see 'list')")
+    p_sens.add_argument("--diameter-m", type=float, help="Dish diameter, instead of --template")
+    p_sens.add_argument("--f-over-d", type=float, default=0.4, help="Dish focal ratio")
+    p_sens.add_argument(
+        "--feed-hpbw", type=float, help="Feed beamwidth (deg); omit to use the ideal feed"
+    )
+    p_sens.add_argument("--band", default="hi", help="Band slug (default: hi)")
+    p_sens.add_argument("--freq-mhz", type=float, help="Frequency, overrides --band")
+    p_sens.add_argument("--lna-nf-db", type=float, default=0.3, help="LNA noise figure (dB)")
+    p_sens.add_argument(
+        "--pre-lna-loss-db", type=float, default=0.2, help="Loss ahead of the LNA (dB)"
+    )
+    p_sens.add_argument("--bandwidth-hz", type=float, default=1e6, help="Detection bandwidth")
+    p_sens.add_argument("--integration-s", type=float, default=60.0, help="Integration time")
+    p_sens.add_argument("--flux-jy", type=float, help="Point-source flux to test against")
+    p_sens.add_argument(
+        "--brightness-k", type=float, help="Extended-source brightness temperature to test"
+    )
+
     p_char = sub.add_parser(
         "characterize", help="Characterize a template across one or more frequencies"
     )
@@ -419,6 +563,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "probe":
         _print_probe(args)
+        return 0
+
+    if args.command == "sensitivity":
+        _print_sensitivity(args)
         return 0
 
     template = catalog.get(args.slug)

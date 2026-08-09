@@ -35,7 +35,14 @@ whether a telescope will work.
    showed M0's BHARAT caveat had blamed the right gap on the wrong cause. The fix records
    both the old explanation and why it was superseded. Silently overwriting a stale claim
    destroys the reader's ability to trust any of the others.
-7. **Self-consistency is not verification.** The M1 geometry bug kept every internal check
+7. **Never apply the point-source formula to extended emission.** `T_A = S·A_e/2k` makes a
+   bigger dish look like more signal; for a source that fills the beam — which galactic HI
+   comprehensively does — the antenna temperature is the brightness temperature and aperture
+   does not enter. Getting this wrong flatters every design, so `detect()` routes by source
+   type and states which formula it used. Related: a huge predicted line SNR must always be
+   reported as "thermal noise is not your limitation", never as a promise, because the real
+   floor is baseline stability.
+8. **Self-consistency is not verification.** The M1 geometry bug kept every internal check
    green — round-trips, efficiency, phase deviations — because the error was in a conversion
    everything downstream shared. Only Balanis' published worked examples caught it. Any new
    physics needs an *external* anchor, not just tests that agree with each other.
@@ -97,8 +104,11 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
   - `feeds.py` — M3: the front-fed paraboloid integrals (illumination, spillover, edge
     taper), feed models (`CosQFeed`, `HornFeed` using real M1 patterns), matching in both
     directions, blockage, the mesh check, and the waveguide probe/backshort design.
+  - `sensitivity.py` — M4: system temperature as a budget (sky + spillover + Friis
+    cascade), SEFD, G/T, the radiometer equation, time-to-detect, and `detect()`, which
+    **routes point vs extended sources to different formulas**. See the invariant below.
   - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`, `feed`,
-    `probe`.
+    `probe`, `sensitivity`.
 - `tests/` — pure, offline, no hardware and no network, ever. Golden values carry their
   arithmetic in a comment so a reader can check rather than trust.
 - `plans/jansky_forge.md` — the full plan: survey, tiers, all fifteen milestones, testing
@@ -182,7 +192,20 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M3 shipped — `v0.4.0` is released** (2026-08-08). Dish efficiency is now *computed* from a
+**M4 shipped — `v0.5.0` is released** (2026-08-09). Antenna numbers became telescope
+numbers: Tsys as an actionable budget, SEFD, G/T, the radiometer equation, time-to-detect,
+and "how big a dish do I need" solved backwards. Anchors: BHARAT's published K/Jy to 0.3%,
+the standard 3.41 K cold sky, and a **real** cross-check against the sibling course's
+radiometer equation (CI checks `jansky` out rather than letting the test skip).
+
+Deliberately NOT shipped: a catalogue of named calibrator fluxes. Cas A and friends are
+epoch-dependent and shipping unverified numbers would break the catalog's provenance rules,
+so `--flux-jy`/`--brightness-k` take a value you can source.
+
+**M5 (wire antennas & arrays) is next** — and it unlocks the Radio JOVE dual-dipole and
+meteor-scatter yagi catalog entries that have been held back since M0.
+
+**M3 shipped — `v0.4.0` was released** (2026-08-08). Dish efficiency is now *computed* from a
 feed pattern rather than typed in, feeds match to dishes in both directions, blockage comes
 from physical parts, and the waveguide probe/backshort design fills the gap M2 named.
 

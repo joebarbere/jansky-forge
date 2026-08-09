@@ -5,6 +5,56 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.5.0] — M4, Sensitivity: telescope figures of merit
+
+Everything before this described an *antenna*. This turns those numbers into *telescope*
+numbers — the ones that answer whether you will see the thing, and how long you must stare.
+
+### Added
+- **`jansky_forge.sensitivity`**: system temperature built from parts you can act on (sky,
+  spillover onto warm ground, pre-amplifier losses, the receiver via the Friis cascade),
+  SEFD, G/T, K/Jy sensitivity, the radiometer equation, time-to-detect, and
+  "how big a dish do I need?" solved backwards.
+- **The M3-to-M4 join**: spillover efficiency becomes kelvins. Feed power that misses the
+  dish sees ~290 K of ground, so a feed-choice made in M3 shows up directly in the noise
+  budget — and when spillover beats the receiver, the system says so and tells you a better
+  feed is cheaper than a better LNA.
+- **`Stage` / Friis cascade**, which makes the mast-head-LNA argument quantitative: the same
+  chain with 3 dB of coax moved from after the LNA to before it goes from 45 K to 334 K.
+- `jansky-forge sensitivity --template discovery-dish --brightness-k 100`.
+
+### The asymmetry this milestone exists to get right
+**Gain is not sensitivity.** A bigger dish collects more from a *point* source. But galactic
+HI fills the beam, and for a beam-filling source the antenna temperature equals the source
+brightness temperature **regardless of aperture** — a 0.9 m horn and a 30 m dish see the
+same ~100 K line. Applying the point-source formula to HI is the most flattering mistake
+available, because it makes a bigger dish look like more signal. `detect()` routes to the
+right formula by source type and says which one it used.
+
+It also refuses to let a large thermal SNR read as a promise: for line work the real floor
+is baseline stability — standing waves, gain drift, RFI — not thermal noise, so a predicted
+SNR of ten thousand is reported as "thermal noise will not be your problem", not as success.
+
+### Verified against
+- **BHARAT's published sensitivity.** The paper gives A_e = 0.407 m² *and* 1.47e-4 K/Jy; we
+  compute 1.474e-4 from the area alone, agreeing to 0.3%.
+- **The standard cold sky.** CMB plus galactic synchrotron scaled from 408 MHz gives 3.41 K
+  at 1.4 GHz, the familiar L-band figure.
+- **The sibling course.** `jansky.signals.radiometer_sensitivity` and
+  `jansky.observing.noise_figure_to_temperature` are independent implementations of two
+  formulas here. Rather than take a hard dependency (this package stays installable on its
+  own) or let a skipped test pretend to guard, **CI checks the course out and runs the
+  cross-check for real**.
+
+### Known limits, stated
+- The sky model is a smooth galactic scaling, not a map: it does not know where you are
+  pointing, and toward the plane you must pass a larger 408 MHz brightness yourself.
+- A curated catalogue of named calibrator sources (Cas A, Cyg A, Tau A) is **not** included:
+  their fluxes are epoch-dependent — Cas A declines measurably every year — and shipping
+  unverified numbers would violate the catalog's own provenance rules. `--flux-jy` and
+  `--brightness-k` take whatever value you can source.
+
+
 ## [0.4.0] — M3, Dish & feed system
 
 Efficiency stops being a number you type in.

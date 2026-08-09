@@ -13,6 +13,10 @@ tiled across ordinary paper, DXF for a laser, a cut list with an honest kerf and
 budget, assembly steps, and a ``design.json`` tying the shapes back to the prediction that
 produced them.
 
+**Sensitivity** — :mod:`jansky_forge.sensitivity` turns antenna numbers into telescope
+numbers: system temperature as a budget you can act on, SEFD, G/T, the radiometer equation,
+and whether you will actually see a given source in a given time.
+
 **Characterize** — (from M7/M8) measured-versus-predicted: VNA sweeps, Y-factor system
 temperature, and beam maps from drift scans, ingested from the sibling ``jansky-observe``
 station software so a real antenna's numbers land next to the model's.
@@ -37,6 +41,13 @@ from jansky_forge.horns import (
     design_pyramidal_horn,
     realizability,
 )
+from jansky_forge.sensitivity import (
+    radiometer_sensitivity_k,
+    sefd_jy,
+    sensitivity_k_per_jy,
+    system_temperature,
+    time_to_detect_s,
+)
 from jansky_forge.units import wavelength_m
 
 __all__ = [
@@ -59,6 +70,11 @@ __all__ = [
     "design_pyramidal_horn",
     "design_probe",
     "evaluate_feed",
+    "radiometer_sensitivity_k",
+    "sefd_jy",
+    "sensitivity_k_per_jy",
+    "system_temperature",
+    "time_to_detect_s",
     "get_band",
     "realizability",
     "wavelength_m",
