@@ -5,6 +5,15 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+### Added
+- `docs/getting-started.md` — installation, the three-tier mental model, a full command
+  reference, and library quickstarts for every module. **Every command and code snippet in
+  it was executed before committing**, because a usage document that has drifted is worse
+  than none.
+- `docs/next-steps.md` — what the v1.0.0 gate actually requires (a build, not code), the
+  gaps worth closing next in priority order, the post-1.0 roadmap, and the milestone pattern
+  that worked so someone picking this up cold can repeat it.
+
 ## [0.10.0] — M9, Interactive UI, and the documentation
 
 Everything before this was correct. This is the milestone that makes it *pleasant*, which
