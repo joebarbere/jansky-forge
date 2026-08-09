@@ -124,22 +124,41 @@ def test_pyramidal_horn_warns_when_its_aperture_is_sub_wavelength():
     assert any("unreliable" in n for n in char.notes)
 
 
-def test_conical_horn_gain_and_beam():
-    """0.4 m aperture at 21 cm.
+def test_conical_horn_applies_the_phase_error_loss():
+    """0.4 m aperture, 0.5 m axial at 21 cm — M1 charges it for its phase error.
 
-    A = pi*0.2^2 = 0.125664 m^2 ; 4*pi*A/lambda^2 = 4*pi*0.125664/0.0445468 = 35.454
-    G = 0.51*35.454 = 18.082 -> 12.573 dBi
-    HPBW_E = 60*0.211061/0.4 = 31.66 ; HPBW_H = 70*0.211061/0.4 = 36.94
+    Slant (throat unknown, apex at throat) = hypot(0.5, 0.2) = 0.53852 m.
+    s = 0.4^2/(8*0.211061*0.53852) = 0.16/0.90926 = 0.17597
+    L(s) = 0.8 - 1.71(0.17597) + 26.25(0.17597)^2 - 17.79(0.17597)^3 = 1.2166 dB
+    aperture gain = (pi*0.4/0.211061)^2 = 35.454 -> 15.496 dB ; minus loss -> 14.28 dBi
     """
     char = ConicalHorn(aperture_diameter_m=0.4, axial_length_m=0.5).characterize(HI_HZ)
-    assert char.gain_dbi == pytest.approx(12.573, abs=0.02)
-    assert char.hpbw_e_deg == pytest.approx(31.66, abs=0.05)
-    assert char.hpbw_h_deg == pytest.approx(36.94, abs=0.05)
+    assert char.gain_dbi == pytest.approx(14.28, abs=0.05)
+    assert char.detail["phase_deviation"] == pytest.approx(0.176, abs=0.002)
+    assert char.detail["loss_figure_db"] == pytest.approx(1.217, abs=0.01)
+    # M0 assumed 51% regardless; the real efficiency here is higher because this horn is
+    # under-flared for its length.
+    assert char.aperture_efficiency > 0.51
+    assert any("loss figure" in n for n in char.notes)
 
 
-def test_conical_horn_warns_when_sub_wavelength():
-    char = ConicalHorn(aperture_diameter_m=0.15).characterize(HI_HZ)
-    assert any("too small" in n for n in char.notes)
+def test_conical_horn_says_when_the_throat_is_unknown():
+    unknown = ConicalHorn(aperture_diameter_m=0.4, axial_length_m=0.5).characterize(HI_HZ)
+    assert any("Throat diameter unknown" in n for n in unknown.notes)
+    # A known throat pushes the apex further back: longer slant, less phase error, more gain.
+    known = ConicalHorn(
+        aperture_diameter_m=0.4, axial_length_m=0.5, throat_diameter_m=0.15
+    ).characterize(HI_HZ)
+    assert known.detail["slant_m"] > unknown.detail["slant_m"]
+    assert known.gain_dbi > unknown.gain_dbi
+    assert not any("Throat diameter unknown" in n for n in known.notes)
+
+
+def test_conical_horn_warns_beyond_the_loss_fit_validity():
+    # A very wide, very short horn: huge phase deviation, outside the cubic fit's range.
+    char = ConicalHorn(aperture_diameter_m=1.6, axial_length_m=0.25).characterize(HI_HZ)
+    assert char.detail["phase_deviation"] > 0.8
+    assert any("beyond where the loss-figure fit is" in n for n in char.notes)
 
 
 @pytest.mark.parametrize(
@@ -149,7 +168,8 @@ def test_conical_horn_warns_when_sub_wavelength():
         lambda: PyramidalHorn(aperture_b_m=-0.1),
         lambda: PyramidalHorn(aperture_efficiency=1.5),
         lambda: ConicalHorn(aperture_diameter_m=0.0),
-        lambda: ConicalHorn(aperture_efficiency=0.0),
+        lambda: ConicalHorn(axial_length_m=0.0),
+        lambda: ConicalHorn(aperture_diameter_m=0.2, throat_diameter_m=0.3),
     ],
 )
 def test_horns_reject_impossible_geometry(factory):

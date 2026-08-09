@@ -131,3 +131,63 @@ def test_utf8_reconfiguration_tolerates_a_stream_that_cannot_do_it(monkeypatch):
 
     monkeypatch.setattr("sys.stdout", FussyStream())
     cli._ensure_utf8_stdout()  # raises internally, swallowed
+
+
+# --------------------------------------------------------------------------------------
+# M1: the design subcommand
+# --------------------------------------------------------------------------------------
+
+
+def test_design_prints_buildable_pyramidal_dimensions(capsys):
+    assert cli.main(["design", "--gain-dbi", "18"]) == 0
+    out = capsys.readouterr().out
+    assert "Optimum pyramidal horn" in out
+    assert "18.00 dBi" in out
+    # The numbers a builder needs, and the realizability reassurance.
+    assert "aperture a1 (H-plane, wide)" in out
+    assert "axial length (p_e = p_h)" in out
+    assert "phase deviation s / t" in out
+    assert "0.2500 / 0.3750" in out  # landed exactly on the optimum flare
+    assert "buildable as a single horn" in out
+
+
+def test_design_conical_and_band_selection(capsys):
+    assert cli.main(["design", "--gain-dbi", "20", "--shape", "conical", "--band", "oh1667"]) == 0
+    out = capsys.readouterr().out
+    assert "Optimum conical horn" in out
+    assert "1667.359 MHz" in out
+    assert "slant (apex to rim)" in out
+    # Honest about the model behind it.
+    assert "empirical loss figure" in out
+
+
+def test_design_accepts_an_explicit_frequency_and_custom_waveguide(capsys):
+    assert (
+        cli.main(["design", "--gain-dbi", "22.6", "--freq-mhz", "11000", "--waveguide", "wr90"])
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "11000.000 MHz" in out
+    assert "22.9 x 10.2 mm" in out  # WR-90 internal dimensions, printed to 0.1 mm
+
+    # And free-form 'AxB' in millimetres.
+    assert cli.main(["design", "--gain-dbi", "15", "--waveguide", "165.1x82.55"]) == 0
+    assert "165.1 x 82.5 mm" in capsys.readouterr().out
+
+
+def test_design_rejects_an_unknown_waveguide():
+    with pytest.raises(SystemExit, match="unrecognized waveguide"):
+        cli.main(["design", "--gain-dbi", "18", "--waveguide", "banana"])
+
+
+def test_design_refuses_a_gain_no_horn_can_deliver():
+    with pytest.raises(ValueError, match="reflector"):
+        cli.main(["design", "--gain-dbi", "55"])
+
+
+def test_show_reports_the_non_buildable_catalog_entry(capsys):
+    """The CLI must surface a realizability failure, not bury it."""
+    assert cli.main(["show", "horn-18dbi-worked"]) == 0
+    out = capsys.readouterr().out
+    assert "NOT a single buildable pyramidal horn" in out
+    assert "phase_deviation_e" in out

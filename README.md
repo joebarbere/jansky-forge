@@ -9,7 +9,8 @@ Fourth sibling of [`jansky`](https://github.com/joebarbere/jansky) (the course),
 [`jansky-observe`](https://github.com/joebarbere/jansky-observe) (station software).
 
 ```console
-$ jansky-forge show discovery-dish
+$ jansky-forge show discovery-dish          # what does this antenna do?
+$ jansky-forge design --gain-dbi 18         # what should I build for 18 dBi?
 ```
 
 ## Why this exists
@@ -106,9 +107,18 @@ The same standard as the sibling repos, applied to hardware:
 
 ## Status
 
-**M0 (`v0.1.0`) — foundation and catalog.** The `AntennaModel` protocol, band definitions, the
-parabolic dish and pyramidal/conical horn analytic models, the catalog with provenance
-enforcement, and the CLI. Roadmap through M14 in
+**M1 (`v0.2.0`) — the horn designer.** Horns are now real physics rather than an assumed
+efficiency: exact aperture phase error (so the model correctly says an *over-flared horn
+loses gain*), synthesis in both directions, realizability checking, and radiation patterns
+computed by integrating the aperture field. Verified against Balanis' published worked
+examples — which caught a 7% geometry bug in our own first attempt that every internal
+consistency check had happily passed.
+
+It also found that one of our own catalog entries is not a buildable horn: its source quotes
+two different axial flare lengths because it optimized the E- and H-plane sectoral horns
+independently. `jansky-forge show horn-18dbi-worked` reports it.
+
+M0 (`v0.1.0`) laid the foundation and the catalog. Roadmap through M14 in
 [`plans/jansky_forge.md`](plans/jansky_forge.md); `v1.0.0` is tagged only once an antenna has
 been designed here, built from this tool's output, and measured back into it.
 
