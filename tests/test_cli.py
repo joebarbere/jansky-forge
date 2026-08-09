@@ -366,3 +366,44 @@ def test_a_worse_lna_raises_tsys(capsys):
         return float(text.split("Tsys ")[1].split(" K")[0])
 
     assert tsys_of(bad) > tsys_of(good) + 100
+
+
+def test_sources_lists_the_catalogue_with_provenance(capsys):
+    assert cli.main(["sources"]) == 0
+    out = capsys.readouterr().out
+    assert "cas-a" in out and "Cassiopeia A" in out
+    assert "Perley & Butler 2017" in out  # every entry states where it came from
+    assert "EPOCH-DEPENDENT" in out
+    assert "epoch 2016" in out
+
+
+def test_sensitivity_against_a_catalogued_source_at_an_epoch(capsys):
+    assert (
+        cli.main(
+            [
+                "sensitivity",
+                "--template",
+                "discovery-dish",
+                "--source",
+                "cas-a",
+                "--epoch-year",
+                "2026.6",
+                "--integration-s",
+                "600",
+            ]
+        )
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "Cassiopeia A" in out
+    assert "Extrapolated" in out and "NOT constant" in out
+    assert "arXiv:1609.05940" in out
+
+
+def test_sensitivity_against_a_catalogued_extended_source(capsys):
+    assert (
+        cli.main(["sensitivity", "--template", "discovery-dish", "--source", "hi-inner-plane"]) == 0
+    )
+    out = capsys.readouterr().out
+    assert "Galactic HI" in out
+    assert "reads the AVERAGE" in out  # the beam-averaging correction reaches the user

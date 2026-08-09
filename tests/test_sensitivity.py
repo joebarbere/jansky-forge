@@ -32,11 +32,20 @@ def test_sensitivity_reproduces_the_bharat_papers_published_value():
     assert sens.sensitivity_k_per_jy(0.407) == pytest.approx(1.47e-4, rel=0.01)
 
 
-def test_cold_sky_matches_the_standard_l_band_figure():
-    """CMB + galactic away from the plane is the familiar ~3.4 K at 1.4 GHz."""
-    assert sens.sky_temperature_k(HI_HZ, include_atmosphere=False) == pytest.approx(3.4, abs=0.1)
-    # The atmosphere is a real extra couple of kelvin, and is separable on purpose.
-    assert sens.sky_temperature_k(HI_HZ) > sens.sky_temperature_k(HI_HZ, include_atmosphere=False)
+def test_cold_sky_model_sits_close_to_the_measured_value_without_being_tuned_to_it():
+    """Testori et al. (2001) MEASURED 3.58 K at the South Celestial Pole.
+
+    Our model gives ~3.41 K. That 0.17 K shortfall is deliberately not tuned away: it lies
+    inside the 0.1-0.5 K zero-level uncertainty the 408 MHz surveys quote, and part of it is
+    the unresolved extragalactic background a single galactic power law cannot represent.
+    A test that demanded exact agreement would be inviting someone to fudge the constant.
+    """
+    modelled = sens.sky_temperature_k(HI_HZ, include_atmosphere=False)
+    assert modelled == pytest.approx(sens.COLD_SKY_MEASURED_1420_K, abs=0.25)
+    assert modelled < sens.COLD_SKY_MEASURED_1420_K  # under, and known to be
+    # The atmosphere is a real 2 K and is separable on purpose — amateurs forget it, and it
+    # is comparable to the whole galactic contribution.
+    assert sens.sky_temperature_k(HI_HZ) - modelled == pytest.approx(2.0)
 
 
 def test_galactic_synchrotron_falls_steeply_with_frequency():
@@ -428,3 +437,106 @@ def test_a_dish_from_m0_a_feed_from_m3_and_a_budget_from_m4():
     sefd = sens.sefd_jy(tsys.total_k, char.effective_area_m2)
     assert 1e5 < sefd < 5e6  # a 0.7 m dish is not a research instrument, and says so
     assert sens.g_over_t_db(char.gain_dbi, tsys.total_k) < 10.0
+
+
+# --------------------------------------------------------------------------------------
+# Universal constants — cheap, decisive checks on the whole sensitivity chain
+# --------------------------------------------------------------------------------------
+
+
+def test_one_kelvin_per_jansky_is_2761_square_metres():
+    """Condon & Ransom eq. 3.49. If a 3 m dish ever claims 1 K/Jy, this is what caught it."""
+    # The published figure is rounded to four significant digits (2761.298 exactly), so
+    # agreement is limited by the citation's precision, not by ours.
+    assert sens.sensitivity_k_per_jy(sens.AREA_FOR_ONE_K_PER_JY_M2) == pytest.approx(1.0, rel=2e-4)
+    assert sens.AREA_FOR_ONE_K_PER_JY_M2 == pytest.approx(2761.3, abs=0.5)
+
+
+def test_sefd_reproduces_nraos_vla_form():
+    """NRAO give SEFD = 5.62*Tsys/eta_A for the VLA's 25 m dishes. Independent arithmetic."""
+    diameter, tsys, eta = 25.0, 1.0, 1.0
+    area = eta * math.pi * (diameter / 2) ** 2
+    assert sens.sefd_jy(tsys, area) == pytest.approx(5.62, abs=0.01)
+
+
+# --------------------------------------------------------------------------------------
+# The source catalogue
+# --------------------------------------------------------------------------------------
+
+
+def test_every_catalogued_source_has_provenance_and_caveats():
+    """Same discipline as the antenna catalog: a number without a source is not printed."""
+    assert len(sens.SOURCES) >= 6
+    for slug, source in sens.SOURCES.items():
+        assert source.slug == slug
+        assert source.source, f"{slug} has no provenance"
+        assert source.caveats, f"{slug} records no caveats"
+        assert (source.flux_jy is None) != (source.brightness_temp_k is None)
+
+
+def test_catalogued_fluxes_match_the_published_scale():
+    """Perley & Butler 2017 at 1.4 GHz, cross-checked against Trotter 2017 to ~2%."""
+    assert sens.get_source("cas-a").flux_jy == pytest.approx(1768.0, rel=0.01)
+    assert sens.get_source("cyg-a").flux_jy == pytest.approx(1580.0, rel=0.01)
+    assert sens.get_source("tau-a").flux_jy == pytest.approx(829.0, rel=0.01)
+    assert sens.get_source("vir-a").flux_jy == pytest.approx(212.0, rel=0.01)
+    with pytest.raises(KeyError, match="known"):
+        sens.get_source("nonesuch")
+
+
+def test_the_fading_sources_are_marked_and_the_stable_ones_are_not():
+    assert set(sens.FADE_RATE_PERCENT_PER_YEAR) == {"cas-a", "tau-a"}
+    for slug in ("cas-a", "tau-a"):
+        assert any(
+            "fade" in c.lower() or "epoch" in c.lower() for c in sens.get_source(slug).caveats
+        )
+    for slug in ("cyg-a", "vir-a"):
+        assert any("Stable" in c for c in sens.get_source(slug).caveats)
+
+
+def test_cas_a_flux_needs_an_epoch_and_says_so():
+    """An undated Cas A flux is a half-truth, so the catalogue refuses to let it pass as one."""
+    cas_a = sens.get_source("cas-a")
+    assert any("EPOCH-DEPENDENT" in c for c in cas_a.caveats)
+    # It fades: later epochs are fainter, earlier ones brighter.
+    now, notes = sens.flux_at_epoch(cas_a, 2026.0)
+    then, _ = sens.flux_at_epoch(cas_a, 2006.0)
+    assert then > cas_a.flux_jy > now
+    # A decade at 0.67 %/yr is about 6.5% down.
+    assert now == pytest.approx(cas_a.flux_jy * (1 - 0.0067) ** 10, rel=1e-9)
+    assert any("NOT constant" in n for n in notes)
+    # And a long extrapolation admits it is one.
+    _, far = sens.flux_at_epoch(cas_a, 1980.0)
+    assert any("long extrapolation" in n for n in far)
+
+
+def test_stable_sources_ignore_the_epoch():
+    cyg_a = sens.get_source("cyg-a")
+    flux, notes = sens.flux_at_epoch(cyg_a, 1975.0)
+    assert flux == cyg_a.flux_jy
+    assert any("stable" in n for n in notes)
+
+
+def test_flux_at_epoch_refuses_extended_sources():
+    with pytest.raises(ValueError, match="extended source"):
+        sens.flux_at_epoch(sens.get_source("hi-inner-plane"), 2026.0)
+
+
+def test_hi_entries_carry_the_beam_averaging_warning():
+    """The catalogue value is a 16-36' survey peak; an amateur beam reads the average."""
+    plane = sens.get_source("hi-inner-plane")
+    assert plane.brightness_temp_k == pytest.approx(113.0)
+    assert any("16-36 arcmin" in c or "arcmin" in c for c in plane.caveats)
+    assert any("146" in c for c in plane.caveats)  # the spin-temperature ceiling
+    # And detect() repeats it, since that is where someone reads a number off.
+    estimate = sens.detect(
+        plane, effective_area_m2=0.3, tsys_k=60.0, bandwidth_hz=1e6, integration_s=60.0
+    )
+    assert any("reads the AVERAGE" in n for n in estimate.notes)
+
+
+def test_the_sun_is_by_far_the_loudest_thing_available():
+    """Worth stating: the Sun is the sane first target for proving a chain works."""
+    sun = sens.get_source("sun-quiet")
+    assert sun.flux_jy > 100 * sens.get_source("cas-a").flux_jy
+    assert any("F10.7" in c for c in sun.caveats)  # guards the standard amateur error

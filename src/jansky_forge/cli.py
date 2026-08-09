@@ -13,6 +13,7 @@ import json
 import math
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 
 from jansky_forge import catalog, fabricate, feeds, horns
 from jansky_forge import sensitivity as sens
@@ -317,6 +318,44 @@ def _feed_from_match_notes(match: feeds.FeedMatch) -> feeds.CosQFeed:
     return feeds.CosQFeed(q=result.x)
 
 
+def _print_estimate(estimate) -> None:  # noqa: ANN001 - DetectionEstimate
+    print(f"\n  {estimate.summary()}")
+    if estimate.time_to_snr5_s is not None:
+        seconds = estimate.time_to_snr5_s
+        if seconds < 1:
+            pretty = "under a second — thermal noise is not your limitation here"
+        elif seconds < 120:
+            pretty = f"{seconds:.1f} s"
+        elif seconds < 7200:
+            pretty = f"{seconds / 60:.1f} min"
+        elif seconds < 172800:
+            pretty = f"{seconds / 3600:.1f} h"
+        else:
+            pretty = f"{seconds / 86400:.1f} days — which is a design problem, not a plan"
+        print(f"    time to SNR 5: {pretty}")
+    for note in estimate.notes:
+        print(f"    - {note}")
+
+
+def _print_sources() -> None:
+    print(f"{'SLUG':<20} {'AT 1.4 GHz':>14}  NAME")
+    for slug in sorted(sens.SOURCES):
+        source = sens.get_source(slug)
+        value = (
+            f"{source.flux_jy:>11,.0f} Jy"
+            if source.flux_jy is not None
+            else f"{source.brightness_temp_k:>9.0f} K ext"
+        )
+        print(f"{slug:<20} {value}  {source.name}")
+        print(f"{'':<20} {'':>14}  source: {source.source}")
+        for caveat in source.caveats:
+            print(f"{'':<20} {'':>14}  - {caveat}")
+    print(
+        f"\nPoint-source fluxes are for epoch {sens.CATALOG_EPOCH_YEAR:g}. Cas A and Tau A "
+        "fade;\nuse --epoch-year to extrapolate, and read the caveat when you do."
+    )
+
+
 def _print_sensitivity(args) -> None:  # noqa: ANN001 - argparse namespace
     freq_hz = args.freq_mhz * 1e6 if args.freq_mhz else get_band(args.band).freq_hz
 
@@ -379,7 +418,22 @@ def _print_sensitivity(args) -> None:  # noqa: ANN001 - argparse namespace
     for note in tsys.notes:
         print(f"\n  - {note}")
 
-    if args.flux_jy or args.brightness_k:
+    if args.source:
+        source = sens.get_source(args.source)
+        if args.epoch_year and source.flux_jy is not None:
+            flux, epoch_notes = sens.flux_at_epoch(source, args.epoch_year)
+            source = replace(source, flux_jy=flux, caveats=(*epoch_notes, *source.caveats))
+        estimate = sens.detect(
+            source,
+            effective_area_m2=char.effective_area_m2,
+            tsys_k=tsys.total_k,
+            bandwidth_hz=args.bandwidth_hz,
+            integration_s=args.integration_s,
+            beam_solid_angle_sr=char.beam_solid_angle_sr,
+        )
+        _print_estimate(estimate)
+        print(f"    source: {source.source}")
+    elif args.flux_jy or args.brightness_k:
         source = sens.RadioSource(
             slug="cli",
             name=(
@@ -400,22 +454,7 @@ def _print_sensitivity(args) -> None:  # noqa: ANN001 - argparse namespace
             integration_s=args.integration_s,
             beam_solid_angle_sr=char.beam_solid_angle_sr,
         )
-        print(f"\n  {estimate.summary()}")
-        if estimate.time_to_snr5_s is not None:
-            seconds = estimate.time_to_snr5_s
-            if seconds < 1:
-                pretty = "under a second — thermal noise is not your limitation here"
-            elif seconds < 120:
-                pretty = f"{seconds:.1f} s"
-            elif seconds < 7200:
-                pretty = f"{seconds / 60:.1f} min"
-            elif seconds < 172800:
-                pretty = f"{seconds / 3600:.1f} h"
-            else:
-                pretty = f"{seconds / 86400:.1f} days — which is a design problem, not a plan"
-            print(f"    time to SNR 5: {pretty}")
-        for note in estimate.notes:
-            print(f"    - {note}")
+        _print_estimate(estimate)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -523,6 +562,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_sens.add_argument(
         "--brightness-k", type=float, help="Extended-source brightness temperature to test"
     )
+    p_sens.add_argument(
+        "--source", help="Catalogued source slug (see 'sources'), instead of a raw value"
+    )
+    p_sens.add_argument(
+        "--epoch-year",
+        type=float,
+        help="Epoch for a fading source's flux (Cas A and Tau A fade measurably)",
+    )
+
+    sub.add_parser("sources", help="List the catalogued radio sources, with provenance")
 
     p_char = sub.add_parser(
         "characterize", help="Characterize a template across one or more frequencies"
@@ -563,6 +612,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "probe":
         _print_probe(args)
+        return 0
+
+    if args.command == "sources":
+        _print_sources()
         return 0
 
     if args.command == "sensitivity":

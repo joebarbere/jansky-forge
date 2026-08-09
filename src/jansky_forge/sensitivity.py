@@ -50,9 +50,23 @@ T_GROUND_K = 290.0
 T_GALACTIC_408_MIN_K = 20.0
 GALACTIC_SPECTRAL_INDEX = -2.7
 
-#: Rough zenith atmospheric contribution at L band (K). Weakly frequency-dependent below a
-#: few GHz; stated as a constant with that limitation named.
-T_ATMOSPHERE_ZENITH_K = 2.5
+#: Zenith atmospheric contribution at L band (K), dominated by well-mixed oxygen.
+#: 2.0 K per Peng et al. (2013)'s radiosonde-validated model for 1400-1427 MHz, as quoted by
+#: the L-BASS survey (Zerafa et al. 2025). Amateurs routinely forget this term, and it is
+#: comparable to the entire galactic contribution.
+T_ATMOSPHERE_ZENITH_K = 2.0
+
+#: MEASURED cold-sky brightness at 1.4 GHz (K), including CMB, galactic and extragalactic
+#: emission but not the atmosphere: 3.58 K at the South Celestial Pole, from three
+#: independent RA strips (Testori et al. 2001, A&A 376, 861), cross-checked against absolute
+#: sky-horn measurements. This is a measurement, and it beats the model below — see
+#: :func:`sky_temperature_k` for what the model gives and why the difference is tolerable.
+COLD_SKY_MEASURED_1420_K = 3.58
+
+#: Effective area corresponding to a sensitivity of exactly 1 K/Jy: 2*k/1e-26 = 2761 m^2.
+#: Condon & Ransom, *Essential Radio Astronomy*, eq. 3.49. A useful sanity check on any
+#: sensitivity figure — if a 3 m dish claims 1 K/Jy, something is wrong by two orders.
+AREA_FOR_ONE_K_PER_JY_M2 = 2761.0
 
 
 # --------------------------------------------------------------------------------------
@@ -83,9 +97,16 @@ def sky_temperature_k(
 ) -> float:
     """Total sky brightness: CMB + galactic synchrotron + (optionally) atmosphere.
 
-    At 1.4 GHz away from the plane this gives about 3.4 K, which is the usual cold-sky
-    figure. It is an estimate, not a measurement of your sky — a real site has RFI, and a
-    real pointing has a galactic latitude.
+    At 1.4 GHz away from the plane the model gives about 3.4 K against a *measured*
+    3.58 K (:data:`COLD_SKY_MEASURED_1420_K`). The 0.2 K shortfall is real and is left in
+    place rather than tuned away: it sits inside the zero-level uncertainty the 408 MHz
+    surveys themselves quote (0.1-0.5 K), and part of it is the unresolved extragalactic
+    background that a single galactic power law does not represent. Where a measurement
+    exists, prefer the measurement.
+
+    This is an estimate of a *model* sky. It does not know where you are pointing — toward
+    the galactic plane the 408 MHz brightness is hundreds of kelvin, so pass a larger
+    ``brightness_408_k`` — and it knows nothing at all about your RFI.
     """
     total = T_CMB_K + galactic_sky_temperature_k(freq_hz, brightness_408_k=brightness_408_k)
     if include_atmosphere:
@@ -256,12 +277,19 @@ def system_temperature(
 def sensitivity_k_per_jy(effective_area_m2: float) -> float:
     """Antenna temperature per unit point-source flux: A_e / 2k, in K/Jy.
 
-    The factor of two is the standard convention: an unpolarized source splits its power
-    evenly between two orthogonal polarizations, and a single-polarization receiver collects
-    one of them.
+    Also called DPFU (degrees per flux unit) in the VLBI literature — the same quantity,
+    despite the name, measured in kelvin per jansky.
 
-    Verified against the BHARAT 21 cm horn, which publishes both A_e = 0.407 m^2 and
-    1.47e-4 K/Jy; this returns 1.474e-4.
+    **The factor of two is a polarization factor, and it is conditional.** A single antenna
+    responds to one polarization, so it collects all of a fully-polarized matched source's
+    power but only half of an *unpolarized* source's (Condon & Ransom, *Essential Radio
+    Astronomy* §3.1.6). Nearly every astronomical continuum source is effectively
+    unpolarized, so the 2 belongs — but it is the most common factor-of-two error in the
+    amateur literature, and it would not belong for a matched polarized transmitter.
+
+    Verified two ways: against the BHARAT 21 cm horn, which publishes both A_e = 0.407 m^2
+    and 1.47e-4 K/Jy (this returns 1.474e-4); and against the identity that 1 K/Jy
+    corresponds to 2761 m^2 of collecting area.
     """
     if effective_area_m2 <= 0:
         raise ValueError("effective area must be positive")
@@ -523,6 +551,13 @@ def detect(
             "— not thermal noise, so treat a huge predicted SNR as 'thermal noise will not "
             "be your problem' rather than as a promise."
         )
+        notes.append(
+            "Catalogued brightness temperatures come from surveys with 16-36 arcmin beams. "
+            "An amateur beam is degrees wide and reads the AVERAGE over that patch, which is "
+            "lower than the survey peak wherever the emission is structured. Expect to "
+            "measure less than the catalogue number, and convolve a survey map with your own "
+            "beam if you need the honest expectation."
+        )
     else:
         assert source.flux_jy is not None
         signal = antenna_temperature_point_k(source.flux_jy, effective_area_m2)
@@ -560,3 +595,189 @@ def detect(
         time_to_snr5_s=seconds,
         notes=tuple(notes),
     )
+
+
+# --------------------------------------------------------------------------------------
+# The source catalogue
+#
+# Held back from the first M4 release until the numbers could be verified, because a flux
+# without an epoch or a provenance is not a number this project prints. Everything here is
+# from Perley & Butler (2017, ApJS 230, 7) unless stated, cross-checked against the
+# independent Trotter et al. (2017, MNRAS 469, 1299) scale — the two agree to about 2%.
+#
+# The point-source fluxes are for EPOCH 2016.0. Two of these four sources fade measurably,
+# so an undated flux is a half-truth; :func:`flux_at_epoch` extrapolates and flags it.
+# --------------------------------------------------------------------------------------
+
+#: Reference epoch of the catalogued point-source fluxes (decimal year).
+CATALOG_EPOCH_YEAR = 2016.0
+
+_PERLEY_BUTLER = "Perley & Butler 2017, ApJS 230, 7 (arXiv:1609.05940)"
+
+SOURCES: dict[str, RadioSource] = {
+    source.slug: source
+    for source in (
+        RadioSource(
+            slug="cas-a",
+            name="Cassiopeia A",
+            flux_jy=1768.0,
+            reference_freq_hz=1.4e9,
+            angular_size_deg=8.0 / 60.0,
+            source=_PERLEY_BUTLER,
+            caveats=(
+                "FLUX IS EPOCH-DEPENDENT: 1768 Jy is for epoch 2016.0. Cas A fades, so an "
+                "undated Cas A flux is meaningless. Use flux_at_epoch() for another year.",
+                "Fading is NOT at a constant rate. Trotter et al. (2017) find at 6.3 sigma "
+                "that it faded fast into the late 1960s, slowed, then resumed fast fading by "
+                "the late 1990s. The long-term L-band average is 0.670 +/- 0.019 %/yr; the "
+                "recent segment is nearer 0.8 %/yr. Any single rate is a fiction over a long "
+                "baseline.",
+                "The older Baars et al. (1977) fading law (0.93 %/yr at 1.4 GHz) is now known "
+                "to overpredict the decline.",
+            ),
+        ),
+        RadioSource(
+            slug="cyg-a",
+            name="Cygnus A",
+            flux_jy=1580.0,
+            reference_freq_hz=1.4e9,
+            angular_size_deg=2.2 / 60.0,
+            source=_PERLEY_BUTLER,
+            caveats=(
+                "Stable: only the ~1 Jy nucleus can vary, and it is under 0.1% of the total, "
+                "so decadal changes are negligible. This is the best L-band standard for an "
+                "amateur — brightest of the stable sources, and the smallest of these four.",
+            ),
+        ),
+        RadioSource(
+            slug="tau-a",
+            name="Taurus A (Crab Nebula)",
+            flux_jy=829.0,
+            reference_freq_hz=1.4e9,
+            angular_size_deg=8.0 / 60.0,
+            source=_PERLEY_BUTLER,
+            caveats=(
+                "Fades slowly: 0.102 (+0.042/-0.043) %/yr in L band, measured by Trotter et "
+                "al. (2017). Perley & Butler instead INFER ~0.25 %/yr from an offset against "
+                "the 1977 scale while noting they found little direct information; the "
+                "measured value is the one used here, and the factor ~2.5 disagreement "
+                "between the two methods is unresolved.",
+                "Strongly linearly polarized, unlike the others — the factor of 2 in "
+                "sensitivity_k_per_jy assumes an unpolarized source.",
+            ),
+        ),
+        RadioSource(
+            slug="vir-a",
+            name="Virgo A (M87)",
+            flux_jy=212.0,
+            reference_freq_hz=1.4e9,
+            angular_size_deg=15.0 / 60.0,
+            source=_PERLEY_BUTLER,
+            caveats=(
+                "Stable: within 1% of its 1977 value after four decades.",
+                "The largest of these four at 14-16 arcmin, with a diffuse halo, so "
+                "single-dish and interferometer flux scales differ. Unresolved by any "
+                "amateur beam, which makes it easier here than for the professionals.",
+            ),
+        ),
+        RadioSource(
+            slug="sun-quiet",
+            name="Quiet Sun",
+            flux_jy=5.5e5,
+            reference_freq_hz=1.415e9,
+            angular_size_deg=35.0 / 60.0,
+            source="Tan et al. 2015, ApJ 808, 61 (arXiv:1507.04866) — 55 SFU at 1415 MHz",
+            caveats=(
+                "55 SFU (1 SFU = 1e4 Jy) at solar MINIMUM, from two independent instruments. "
+                "Other estimates in the same paper span 47-61 SFU; treat this as +/- 15%.",
+                "Varies with the solar cycle by roughly 2-4x. That ratio is INFERRED from "
+                "1 GHz multi-cycle data (Nobeyama/Toyokawa), not measured at 1.4 GHz.",
+                "Do NOT use the F10.7 index for this: it is 2800 MHz, a different frequency "
+                "with a different absolute level. Conflating them is the standard error.",
+                "By far the strongest thing an amateur dish will ever see, and a good first "
+                "target for proving a chain works before hunting hydrogen.",
+            ),
+        ),
+        RadioSource(
+            slug="hi-inner-plane",
+            name="Galactic HI, inner-plane (b=0)",
+            flux_jy=None,
+            reference_freq_hz=1_420_405_751.768,
+            brightness_temp_k=113.0,
+            source="LAB/GASS/EBHIS via the Bonn AIfA HI profile server, 0.2 deg beam",
+            caveats=(
+                "Median of directly-queried inner-plane profiles; the range across the inner "
+                "plane is 96-136 K.",
+                "This is a survey brightness at 16-36 arcmin resolution. A degrees-wide "
+                "amateur beam reads a lower average — see the extended-source note.",
+                "Physically capped near the spin temperature: saturated 21 cm brightness "
+                "gives T_s = 146 K (Sofue 2017), so ~100-150 K is the ceiling, not a floor.",
+            ),
+        ),
+        RadioSource(
+            slug="hi-high-latitude",
+            name="Galactic HI, high latitude",
+            flux_jy=None,
+            reference_freq_hz=1_420_405_751.768,
+            brightness_temp_k=1.0,
+            source="LAB/GASS/EBHIS via the Bonn AIfA HI profile server, 0.2 deg beam",
+            caveats=(
+                "About 0.8-1.0 K toward the Lockman Hole, 1.4 K at the north galactic pole. "
+                "Mid-latitudes (|b| ~ 20-40 deg) run 23-40 K, so this is the hard case, not "
+                "the typical one.",
+                "Two orders of magnitude below the plane — point a first-light attempt at the "
+                "plane, not at a pole.",
+            ),
+        ),
+    )
+}
+
+
+def get_source(slug: str) -> RadioSource:
+    """Look a catalogued source up by slug."""
+    try:
+        return SOURCES[slug]
+    except KeyError:
+        raise KeyError(f"unknown source {slug!r}; known: {', '.join(sorted(SOURCES))}") from None
+
+
+#: Measured L-band fading rates, %/yr, for the sources that fade. Values and their
+#: uncertainties from Trotter et al. (2017); see each source's caveats for why a single
+#: rate is an approximation.
+FADE_RATE_PERCENT_PER_YEAR: dict[str, float] = {
+    "cas-a": 0.670,
+    "tau-a": 0.102,
+}
+
+
+def flux_at_epoch(source: RadioSource, year: float) -> tuple[float, tuple[str, ...]]:
+    """A fading source's flux at another epoch, with the extrapolation flagged.
+
+    Returns ``(flux_jy, notes)``. For a stable source this is the catalogue value and a note
+    saying so. For a fading one it applies the measured long-term rate from the catalogue
+    epoch — and says plainly that the rate is an average over a period during which the
+    fading demonstrably was not constant, so a long extrapolation is a guess with arithmetic
+    attached.
+    """
+    if source.flux_jy is None:
+        raise ValueError(f"{source.name} is an extended source and has no flux density")
+    rate = FADE_RATE_PERCENT_PER_YEAR.get(source.slug)
+    if rate is None:
+        return source.flux_jy, (
+            f"{source.name} is stable; the epoch {year:g} makes no difference.",
+        )
+    elapsed = year - CATALOG_EPOCH_YEAR
+    flux = source.flux_jy * (1.0 - rate / 100.0) ** elapsed
+    notes = [
+        f"Extrapolated {elapsed:+.1f} yr from epoch {CATALOG_EPOCH_YEAR:g} at "
+        f"{rate:g} %/yr: {source.flux_jy:.0f} Jy -> {flux:.0f} Jy.",
+        "That rate is a long-term average over an interval in which the fading measurably "
+        "was NOT constant. Treat this as an estimate with arithmetic attached, not a "
+        "prediction, and prefer a recent published measurement if you have one.",
+    ]
+    if abs(elapsed) > 15:
+        notes.append(
+            f"{abs(elapsed):.0f} years is a long extrapolation past the data the rate was "
+            "fitted to. The uncertainty here is larger than the number's precision suggests."
+        )
+    return flux, tuple(notes)

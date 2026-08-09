@@ -5,6 +5,59 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.5.1] — verified source catalogue, and three corrections
+
+M4 shipped without a source catalogue because the fluxes were not yet verified. They now
+are — against **Perley & Butler (2017)** cross-checked with the independent **Trotter et al.
+(2017)** scale, which agree to about 2%. Verification found three things wrong with what
+would otherwise have been shipped, one of them already released.
+
+### Fixed
+- **The zenith atmosphere term was 2.5 K; it is 2.0 K** (Peng et al. 2013's
+  radiosonde-validated 1400-1427 MHz model, via L-BASS). This was in the released v0.5.0 and
+  made every system temperature half a kelvin pessimistic.
+- **Cas A is not "~1900-2000 Jy".** That is an early-2000s value. It is **1768 Jy at epoch
+  2016.0**, and an undated Cas A flux is meaningless because it fades.
+- **Tau A is 829 Jy, not 875**, and its measured decline is **0.10 +/- 0.04 %/yr**, not the
+  0.15 %/yr often repeated.
+
+### Added
+- Seven catalogued sources with full provenance: Cas A, Cyg A, Tau A, Vir A, the quiet Sun,
+  and galactic HI at the plane and at high latitude. `jansky-forge sources` prints them with
+  every caveat attached.
+- **`flux_at_epoch()`** for the two sources that fade, which states that the rate it applies
+  is a long-term average over an interval in which the fading demonstrably was *not*
+  constant — Trotter et al. detect that at 6.3 sigma — and flags long extrapolations as
+  guesses with arithmetic attached.
+- Two universal constants as cheap, decisive checks on the whole chain: **1 K/Jy is 2761 m²**
+  of collecting area (Condon & Ransom eq. 3.49), and our SEFD reproduces **NRAO's
+  `5.62·Tsys/eta_A`** form for the VLA's 25 m dishes.
+- The factor of two in `sensitivity_k_per_jy` is now explained as what it is — a
+  *polarization* factor that applies because the source is unpolarized, the most common
+  factor-of-two error in the amateur literature.
+
+### The correction that matters most for expectations
+Catalogued HI brightness temperatures come from surveys with **16-36 arcmin beams**. An
+amateur beam is *degrees* wide and reads the average over that patch, which is lower than the
+survey peak wherever emission is structured. The aperture-independence point from M4 is
+still exactly right — but the number an amateur measures is not the catalogue peak, and
+`detect()` now says so.
+
+### Not tuned away
+The sky model gives 3.41 K at 1.4 GHz against Testori et al.'s **measured** 3.58 K. That
+0.17 K shortfall is left in place: it sits inside the 0.1-0.5 K zero-level uncertainty the
+408 MHz surveys quote, and part of it is an extragalactic background a single galactic power
+law cannot represent. The measured value is recorded alongside as
+`COLD_SKY_MEASURED_1420_K`, and the test asserts closeness rather than equality — a test
+demanding exact agreement would be an invitation to fudge the constant.
+
+### Could not verify, so not shipped
+The Baars et al. (1977) polynomial coefficients (the ADS scan is image-only and would not
+OCR); the quiet-Sun solar-cycle amplitude *at 1.4 GHz specifically* (only 1 GHz multi-cycle
+data exists, so the 2-4x range is flagged as inferred); and a galactic-centre continuum peak,
+for which only a lower bound was obtainable.
+
+
 ## [0.5.0] — M4, Sensitivity: telescope figures of merit
 
 Everything before this described an *antenna*. This turns those numbers into *telescope*
