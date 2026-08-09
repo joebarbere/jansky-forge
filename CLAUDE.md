@@ -94,7 +94,11 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
     sheet carries a 100 mm ruler and that is not optional**), `dxf.py` (R12, cut/fold
     layers, true arcs), `cutlist.py` (kerf, material budget, BOM with reasons),
     `packet.py` (writes the whole folder, including `design.json` provenance).
-  - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`.
+  - `feeds.py` — M3: the front-fed paraboloid integrals (illumination, spillover, edge
+    taper), feed models (`CosQFeed`, `HornFeed` using real M1 patterns), matching in both
+    directions, blockage, the mesh check, and the waveguide probe/backshort design.
+  - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`, `feed`,
+    `probe`.
 - `tests/` — pure, offline, no hardware and no network, ever. Golden values carry their
   arithmetic in a comment so a reader can check rather than trust.
 - `plans/jansky_forge.md` — the full plan: survey, tiers, all fifteen milestones, testing
@@ -178,7 +182,21 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M2 shipped — `v0.3.0` is released** (2026-08-08). A design now becomes cut metal:
+**M3 shipped — `v0.4.0` is released** (2026-08-08). Dish efficiency is now *computed* from a
+feed pattern rather than typed in, feeds match to dishes in both directions, blockage comes
+from physical parts, and the waveguide probe/backshort design fills the gap M2 named.
+
+Its anchors, both external: the **-10.9 dB optimum edge taper emerges** from maximizing
+efficiency (it is never an input) for every feed shape tried, and the **probe design
+reproduces PhysicsOpenLab's published, built 21 cm horn** to a third of a millimetre.
+
+Carried gap, now deferred twice and worth being honest about: **conical horn patterns are
+still rules of thumb**. `conical_horn_feed()` is the usable stopgap and says so.
+
+**M4 (sensitivity — G/T, SEFD, Tsys, radiometer, time-to-detect) is next**, and it is the
+milestone that turns antenna numbers into telescope numbers.
+
+**M2 shipped — `v0.3.0` was released** (2026-08-08). A design now becomes cut metal:
 exact flat developments for both horn types, 1:1 tiled SVG templates, DXF, cut list with an
 honest kerf budget, assembly checklist, and `design.json` provenance.
 `jansky-forge fabricate --gain-dbi 18 --out ./horn` writes the lot.
