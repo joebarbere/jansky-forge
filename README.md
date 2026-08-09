@@ -111,6 +111,11 @@ The same standard as the sibling repos, applied to hardware:
 
 ## Status
 
+**M8 (`v0.9.0`) — on-sky characterization.** The first numbers in this package that are not
+derived from geometry at all. Y-factor system temperature, drift-scan beamwidth, and transit
+aperture efficiency — **the efficiency every earlier milestone could only assume** — read
+directly from `jansky-observe` observation bundles.
+
 **M7 (`v0.8.0`) — measurement ingest.** Reads what a VNA says about the metal you built.
 Native Touchstone (`.s1p`) parsing, reference-plane de-embedding, L-network matching, and a
 comparison that **keeps prediction and measurement in separate fields with nothing combining
