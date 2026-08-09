@@ -120,8 +120,14 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
   - `onsky.py` — M8: Y-factor Tsys, drift-scan beamwidth, transit aperture efficiency, and
     `read_bundle()` for `jansky-observe` observation bundles. The schema identifier is
     **checked**, so an upstream format change breaks loudly instead of mis-reading.
+  - `server/` — M9, the optional web UI: `app.py` (routes), `templates.py` (markup as
+    strings — no Jinja2, no CDN), `plots.py` (server-rendered SVG). **The UI must display a
+    model's caveats**; tests enforce it.
   - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`, `feed`,
-    `probe`, `sensitivity`, `sources`.
+    `probe`, `sensitivity`, `sources`, `serve`.
+- `docs/` — nine milestones of traps, rules of thumb, workflows, lessons, known limits, the
+  verification log, and the honesty invariants. **Read `docs/traps.md` before touching the
+  physics**, and add to it whenever something bites.
 - `tests/` — pure, offline, no hardware and no network, ever. Golden values carry their
   arithmetic in a comment so a reader can check rather than trust.
 - `plans/jansky_forge.md` — the full plan: survey, tiers, all fifteen milestones, testing
@@ -205,7 +211,20 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M8 shipped — `v0.9.0` is released** (2026-08-09). On-sky characterization, and the
+**M9 shipped — `v0.10.0` is released** (2026-08-09), together with `docs/`. The UI ships
+without htmx, without a charting library and without a CDN — 0.12 ms synthesis means an HTTP
+round trip is network-bound, so inline JavaScript plus server-rendered SVG is enough, and it
+works offline where antennas actually get built.
+
+Building it surfaced that synthesis returns a **205 m aperture** for 30 dBi at 20 MHz:
+bounded by physics, a long way past bounded by sense. Both design types now carry
+buildability notes, in the model rather than the presenter, so the CLI gained them too.
+
+**Everything the `v1.0.0` gate needs now exists.** It is not a feature: it is tagged once one
+antenna has been designed here, built from this tool's fabrication output, and measured back
+in through M7 (VNA) and M8 (sky). A 21 cm test horn would close it.
+
+**M8 shipped — `v0.9.0` was released** (2026-08-09). On-sky characterization, and the
 cross-repo contract with `jansky-observe` honoured exactly as written at M0 — no changes were
 needed on that side.
 

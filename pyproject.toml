@@ -1,6 +1,6 @@
 [project]
 name = "jansky-forge"
-version = "0.9.0"
+version = "0.10.0"
 description = "Design, build, and characterize radio-astronomy antennas: instant analytic characterization, a catalog of known telescope builds, and fabrication artifacts. Sibling of the jansky course, jansky-research, and jansky-observe."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -38,6 +38,8 @@ mom = ["pymininec>=1.2"]
 # M7. The Touchstone reader is native, so this is only needed for the richer network math
 # and for the test that cross-checks our reader against an independent one.
 measure = ["scikit-rf>=1.0"]
+# M9. The UI is optional so the library and CLI never depend on a web framework.
+ui = ["fastapi>=0.115", "uvicorn>=0.30"]
 
 [project.urls]
 Homepage = "https://github.com/joebarbere/jansky-forge"

@@ -161,6 +161,8 @@ def _print_design(args) -> None:  # noqa: ANN001 - argparse namespace
         print(f"    axial length                 {cone.axial_length_m * 1000:9.1f} mm")
         print(f"    slant (apex to rim)          {cone.slant_m * 1000:9.1f} mm")
         print("\n  Gain uses Balanis' empirical loss figure; see 'show' notes for its limits.")
+        for note in cone.notes:
+            print(f"\n  NOTE: {note}")
         return
 
     wg_a, wg_b = _parse_waveguide(args.waveguide)
@@ -188,6 +190,8 @@ def _print_design(args) -> None:  # noqa: ANN001 - argparse namespace
         "\n  Both flares share one axial length, so this is buildable as a single horn — "
         "\n  which is not true of every published design; see 'show horn-18dbi-worked'."
     )
+    for note in design.notes:
+        print(f"\n  NOTE: {note}")
 
 
 def _print_fabricate(args) -> None:  # noqa: ANN001 - argparse namespace
@@ -573,6 +577,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("sources", help="List the catalogued radio sources, with provenance")
 
+    p_serve = sub.add_parser("serve", help="Run the interactive web UI (M9, needs the ui extra)")
+    p_serve.add_argument("--host", default="127.0.0.1", help="Bind address (default: localhost)")
+    p_serve.add_argument("--port", type=int, default=8000)
+
     p_char = sub.add_parser(
         "characterize", help="Characterize a template across one or more frequencies"
     )
@@ -612,6 +620,19 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "probe":
         _print_probe(args)
+        return 0
+
+    if args.command == "serve":
+        try:
+            import uvicorn
+
+            from jansky_forge.server import create_app
+        except ImportError as exc:
+            raise SystemExit(
+                "the UI needs the optional extra: pip install 'jansky-forge[ui]'"
+            ) from exc
+        print(f"jansky-forge UI on http://{args.host}:{args.port}")
+        uvicorn.run(create_app(), host=args.host, port=args.port, log_level="warning")
         return 0
 
     if args.command == "sources":

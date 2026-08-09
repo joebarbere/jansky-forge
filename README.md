@@ -109,7 +109,19 @@ The same standard as the sibling repos, applied to hardware:
 - **Efficiency is a budget, not a fudge factor.** Illumination, spillover, blockage, and surface
   error are separate named terms because each is a different thing to *fix* in a real build.
 
+## Documentation
+
+Nine milestones of accumulated knowledge, organised for lookup: **[docs/](docs/)** —
+[traps](docs/traps.md), [rules of thumb](docs/rules-of-thumb.md),
+[workflows](docs/workflows.md), [lessons learned](docs/lessons-learned.md),
+[known limits](docs/known-limits.md), [verification log](docs/verification-log.md).
+
 ## Status
+
+**M9 (`v0.10.0`) — the interactive UI.** `jansky-forge serve` gives a catalogue browser and a
+slider-driven horn designer that recomputes live. No CDN and no build step, so it works
+offline — which is where antennas get built. And it displays a model's caveats, because a
+polished number is more readily believed.
 
 **M8 (`v0.9.0`) — on-sky characterization.** The first numbers in this package that are not
 derived from geometry at all. Y-factor system temperature, drift-scan beamwidth, and transit

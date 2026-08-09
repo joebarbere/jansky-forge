@@ -41,11 +41,11 @@ jobs:
       # CI checks the course out and runs the cross-check for real instead of skipping it.
       # Tier 2 is an optional extra, so its tests skip by default. A guard that only ever
       # skips is not a guard — install it here and run the validation for real.
-      - name: Tier-2 MoM + measurement cross-checks (optional extras)
+      - name: Optional extras — MoM, measurement cross-checks, and the UI
         if: matrix.os == 'ubuntu-latest'
         run: |
-          uv pip install 'pymininec>=1.2' 'scikit-rf>=1.0'
-          uv run --no-sync pytest tests/test_mom.py tests/test_measure.py -v
+          uv pip install 'pymininec>=1.2' 'scikit-rf>=1.0' 'fastapi>=0.115' httpx2
+          uv run --no-sync pytest tests/test_mom.py tests/test_measure.py tests/test_server.py -v
       - name: Checkout the jansky course (for the radiometer cross-check)
         if: matrix.os == 'ubuntu-latest'
         uses: actions/checkout@v4
