@@ -125,8 +125,8 @@ workflow exist from M0 so that is true from the first tag. Version lives in
 
 | Tag | Milestone | What the release means |
 |---|---|---|
-| `v0.1.0` | **M0 — Foundation & catalog** | Package, CI, release workflow, the `AntennaModel` protocol, bands, dish + horn analytic models, the catalog with the Discovery Dish and known builds, the CLI, `/verify` + `/release` + the design skills. Useful on day one: `jansky-forge show discovery-dish` |
-| `v0.2.0` | **M1 — Horn designer** | Synthesis *both directions* (gain→dimensions and dimensions→performance) for pyramidal and conical horns; Balanis aperture-phase-error correction replacing the optimum-flare assumption; E/H-plane pattern computation; golden tests against W1GHZ tables and published amateur builds |
+| `v0.1.0` | **M0 — Foundation & catalog** ✅ shipped 2026-08-08 | Package, CI, release workflow, the `AntennaModel` protocol, bands, dish + horn analytic models, the catalog with the Discovery Dish and known builds, the CLI, `/verify` + `/release` + the design skills. Useful on day one: `jansky-forge show discovery-dish` |
+| `v0.2.0` | **M1 — Horn designer** ✅ shipped 2026-08-08 | Synthesis *both directions* (gain→dimensions and dimensions→performance) for pyramidal and conical horns; Balanis aperture-phase-error correction replacing the optimum-flare assumption; E/H-plane pattern computation; golden tests against W1GHZ tables and published amateur builds |
 | `v0.3.0` | **M2 — Fabrication** | The artifacts that turn a design into metal: printable fold-up templates (SVG/PDF, tiled to A4/Letter), DXF export, cut lists with kerf allowance, a bill of materials, and assembly notes. The "build" leg of the name |
 | `v0.4.0` | **M3 — Dish & feed system** | f/D ↔ subtended angle ↔ edge taper ↔ illumination/spillover as a solved system rather than assumed constants; feed selection and matching (which horn belongs on which dish); offset geometry; strut blockage; mesh transparency; focal-point placement |
 | `v0.5.0` | **M4 — Sensitivity: telescope figures of merit** | G/T, SEFD, Tsys budget (feed + LNA + cable + spillover + sky), the radiometer equation, time-to-detect for a named source, and "how big a dish do I need to see X?" solved backwards. Optional `jansky` dependency lands here for the course's radiometer helpers |
@@ -149,6 +149,22 @@ and LNA noise modelling, a public catalog-contribution flow, mobile/tablet UI.
 **Feature parking lot** (recorded so they are decisions, not oversights): 3D geometry
 viewer, STL export for printed feeds, waveguide component design, filter/diplexer design,
 antenna-range measurement automation, machine-learning surrogates for the MoM tier.
+
+### M1 postscript (2026-08-08)
+
+Two things worth carrying forward:
+
+1. **Self-consistency is not verification.** The first M1 implementation had a 7% error in
+   the axial-to-apex-distance conversion (Balanis' ρ_e/ρ_h are *slants*; ρ₁/ρ₂ are *axial*).
+   Every internal check stayed green — synthesis round-tripped, efficiency came out at the
+   textbook 51%, phase deviations landed exactly on 1/4 and 3/8 — because the error sat in a
+   conversion that everything downstream shared. Only checking against Balanis' *published*
+   worked examples exposed it. Every future physics milestone needs an external anchor.
+2. **Conical patterns are a known gap.** Conical *gain* is exact (Balanis' loss figure, with
+   an independent aperture-integration cross-check), but conical beamwidths are still the
+   optimum-flare rules of thumb. Computing them properly needs the circular-aperture TE11
+   far field; deferred rather than faked, and the model's notes say so. Candidate for M3,
+   where feed patterns start to matter for dish illumination.
 
 ## 6. Testing strategy
 

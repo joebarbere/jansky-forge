@@ -24,7 +24,10 @@ import math
 from dataclasses import dataclass
 from typing import ClassVar
 
+from jansky_forge import horns
 from jansky_forge.core import Characterization, characterization_from_gain
+from jansky_forge.horns import OPTIMUM_PHASE_DEVIATION_E, OPTIMUM_PHASE_DEVIATION_H
+from jansky_forge.units import C_M_S
 
 #: Beamwidth constant k in HPBW = k·λ/D (degrees) for a parabolic dish. The textbook
 #: range is 58 (uniform illumination) to ~72 (heavy edge taper); 70 is the value the
@@ -184,23 +187,31 @@ class ParabolicDish:
 class PyramidalHorn:
     """A rectangular pyramidal horn — the classic build-it-from-sheet-metal 21 cm antenna.
 
-    The aperture is ``aperture_a_m`` (H-plane, the wide dimension, parallel to the
-    waveguide's broad wall) by ``aperture_b_m`` (E-plane). Gain follows the aperture
-    relation G = η·4πA/λ² with η defaulting to the optimum-horn 0.51; beamwidths use the
-    optimum-horn approximations. Both hold for horns flared to near-optimum proportions —
-    which is what published amateur designs are, since they come from the same equations.
+    ``aperture_a_m`` is the H-plane (wide) dimension, ``aperture_b_m`` the E-plane.
+    ``axial_length_m`` is the horn's physical length from the waveguide face to the
+    aperture — Balanis' p_e/p_h — which is what a builder measures.
+
+    Given the waveguide dimensions, gain and beamwidths come from the exact
+    phase-error physics in :mod:`jansky_forge.horns`: no assumption that the flare is
+    near-optimum, so the model correctly reports that an over-flared horn *loses* gain.
+    Without them (a source that never published its throat) it falls back to M0's
+    optimum-flare estimate and says so in the notes.
+
+    ``axial_length_h_m`` exists to check published designs that quote two different flare
+    lengths. A real pyramidal horn has one; see :func:`jansky_forge.horns.realizability`.
     """
 
     kind: ClassVar[str] = "Pyramidal horn"
     aperture_a_m: float = 0.5
     aperture_b_m: float = 0.4
-    #: Axial length from throat to aperture. Not used by the gain model (which assumes
-    #: near-optimum flare), but carried because fabrication (M2) needs it and the
-    #: phase-error-corrected gain model (M1) will consume it.
     axial_length_m: float = 0.5
-    #: Feeding waveguide's internal broad and narrow walls (0 = unspecified).
+    #: Feeding waveguide's internal broad and narrow walls (0 = not published).
     waveguide_a_m: float = 0.0
     waveguide_b_m: float = 0.0
+    #: Separate H-plane axial length, only for checking non-realizable published designs.
+    #: 0 means "the same as the E-plane", which is the physical case.
+    axial_length_h_m: float = 0.0
+    #: Fallback efficiency, used only when the waveguide dimensions are unknown.
     aperture_efficiency: float = OPTIMUM_HORN_EFFICIENCY
 
     def __post_init__(self) -> None:
@@ -215,39 +226,132 @@ class PyramidalHorn:
     def physical_area_m2(self) -> float:
         return self.aperture_a_m * self.aperture_b_m
 
+    @property
+    def _axial_h_m(self) -> float:
+        return self.axial_length_h_m or self.axial_length_m
+
+    @property
+    def _exact(self) -> bool:
+        """Is there enough geometry for the phase-error model?"""
+        return (
+            self.waveguide_a_m > 0
+            and self.waveguide_b_m > 0
+            and self.aperture_a_m > self.waveguide_a_m
+            and self.aperture_b_m > self.waveguide_b_m
+            and self.axial_length_m > 0
+        )
+
     def parameters(self) -> dict[str, float]:
-        return {
+        params = {
             "aperture_a_m": self.aperture_a_m,
             "aperture_b_m": self.aperture_b_m,
             "axial_length_m": self.axial_length_m,
             "waveguide_a_m": self.waveguide_a_m,
             "waveguide_b_m": self.waveguide_b_m,
-            "aperture_efficiency": self.aperture_efficiency,
         }
+        if self.axial_length_h_m:
+            params["axial_length_h_m"] = self.axial_length_h_m
+        if not self._exact:
+            params["aperture_efficiency"] = self.aperture_efficiency
+        return params
 
     def characterize(self, freq_hz: float) -> Characterization:
-        lam = 299_792_458.0 / freq_hz
-        gain_linear = self.aperture_efficiency * 4.0 * math.pi * self.physical_area_m2 / (lam * lam)
-        hpbw_e = PYRAMIDAL_HPBW_E_CONST * lam / self.aperture_b_m
-        hpbw_h = PYRAMIDAL_HPBW_H_CONST * lam / self.aperture_a_m
+        lam = C_M_S / freq_hz
+        if not self._exact:
+            return self._characterize_approximate(freq_hz, lam)
+
+        rho1 = horns.apex_distance_e(
+            aperture_b1_m=self.aperture_b_m,
+            waveguide_b_m=self.waveguide_b_m,
+            axial_m=self.axial_length_m,
+        )
+        rho2 = horns.apex_distance_h(
+            aperture_a1_m=self.aperture_a_m,
+            waveguide_a_m=self.waveguide_a_m,
+            axial_m=self._axial_h_m,
+        )
+        gain = horns.pyramidal_gain(
+            waveguide_a_m=self.waveguide_a_m,
+            waveguide_b_m=self.waveguide_b_m,
+            aperture_a1_m=self.aperture_a_m,
+            aperture_b1_m=self.aperture_b_m,
+            rho1_m=rho1,
+            rho2_m=rho2,
+            wavelength_metres=lam,
+        )
+        hpbw_e, hpbw_h = horns.pattern_beamwidths(
+            aperture_a1_m=self.aperture_a_m,
+            aperture_b1_m=self.aperture_b_m,
+            rho1_m=rho1,
+            rho2_m=rho2,
+            freq_hz=freq_hz,
+        )
+        s = horns.phase_deviation_e(
+            aperture_b1_m=self.aperture_b_m, rho1_m=rho1, wavelength_metres=lam
+        )
+        t = horns.phase_deviation_h(
+            aperture_a1_m=self.aperture_a_m, rho2_m=rho2, wavelength_metres=lam
+        )
+        eta = gain / (4.0 * math.pi * self.physical_area_m2 / (lam * lam))
 
         notes = [
-            "Gain and beamwidths assume near-optimum flare proportions (Balanis ch. 13); a "
-            "horn flared far from optimum loses gain to aperture phase error that this "
-            "model does not yet compute — M1 adds the phase-error correction.",
+            "Gain and beamwidths come from the exact aperture-phase-error model "
+            "(Balanis ch. 13 Fresnel-integral form), not an assumed efficiency.",
+        ]
+        if s > 1.5 * OPTIMUM_PHASE_DEVIATION_E or t > 1.5 * OPTIMUM_PHASE_DEVIATION_H:
+            notes.append(
+                f"Over-flared for its length (phase deviation s={s:.2f}, t={t:.2f} against "
+                f"optima {OPTIMUM_PHASE_DEVIATION_E:g}/{OPTIMUM_PHASE_DEVIATION_H:g}): a "
+                "shorter aperture or a longer horn would gain MORE, not less."
+            )
+        elif s < 0.5 * OPTIMUM_PHASE_DEVIATION_E and t < 0.5 * OPTIMUM_PHASE_DEVIATION_H:
+            notes.append(
+                f"Under-flared (s={s:.2f}, t={t:.2f}): this horn is longer than it needs to "
+                "be for its aperture — widening it would gain more for the same length."
+            )
+        check = horns.realizability(axial_e_m=self.axial_length_m, axial_h_m=self._axial_h_m)
+        if not check.realizable:
+            notes.append(check.message)
+
+        return characterization_from_gain(
+            freq_hz=freq_hz,
+            gain_linear=gain,
+            hpbw_e_deg=hpbw_e,
+            hpbw_h_deg=hpbw_h,
+            aperture_efficiency=eta,
+            detail={
+                "physical_area_m2": self.physical_area_m2,
+                "rho1_axial_m": rho1,
+                "rho2_axial_m": rho2,
+                "slant_e_m": horns.slant_e(rho1_m=rho1, aperture_b1_m=self.aperture_b_m),
+                "slant_h_m": horns.slant_h(rho2_m=rho2, aperture_a1_m=self.aperture_a_m),
+                "phase_deviation_e": s,
+                "phase_deviation_h": t,
+                "aperture_a_wavelengths": self.aperture_a_m / lam,
+                "aperture_b_wavelengths": self.aperture_b_m / lam,
+            },
+            notes=tuple(notes),
+        )
+
+    def _characterize_approximate(self, freq_hz: float, lam: float) -> Characterization:
+        """M0's optimum-flare estimate, for geometry too incomplete for the real model."""
+        gain_linear = self.aperture_efficiency * 4.0 * math.pi * self.physical_area_m2 / (lam * lam)
+        notes = [
+            "APPROXIMATE: the waveguide dimensions are unknown, so the aperture phase error "
+            f"cannot be computed. This assumes near-optimum flare ({self.aperture_efficiency:g} "
+            "aperture efficiency) and will overstate the gain of an over-flared horn.",
         ]
         smallest = min(self.aperture_a_m, self.aperture_b_m) / lam
         if smallest < 1.0:
             notes.append(
-                f"Smallest aperture dimension is {smallest:.2f}λ — below ~1λ the aperture "
-                "approximation is unreliable and this gain should not be trusted."
+                f"Smallest aperture dimension is {smallest:.2f} wavelengths — below ~1 the "
+                "aperture approximation is unreliable and this gain should not be trusted."
             )
-
         return characterization_from_gain(
             freq_hz=freq_hz,
             gain_linear=gain_linear,
-            hpbw_e_deg=hpbw_e,
-            hpbw_h_deg=hpbw_h,
+            hpbw_e_deg=PYRAMIDAL_HPBW_E_CONST * lam / self.aperture_b_m,
+            hpbw_h_deg=PYRAMIDAL_HPBW_H_CONST * lam / self.aperture_a_m,
             aperture_efficiency=self.aperture_efficiency,
             detail={
                 "physical_area_m2": self.physical_area_m2,
@@ -261,60 +365,99 @@ class PyramidalHorn:
 
 @dataclass(frozen=True)
 class ConicalHorn:
-    """A circular conical horn — the natural feed for a prime-focus dish."""
+    """A circular conical horn — the natural feed for a prime-focus dish.
+
+    Gain uses Balanis' loss-figure treatment (13-59), which reduces the aperture gain by an
+    empirical phase-error loss fitted to King's 1950 measurements. Unlike the pyramidal
+    case there is no tractable closed form; Balanis explicitly declines the rigorous
+    spherical-mode analysis as too involved, and this is the standard engineering route.
+
+    Beamwidths remain the optimum-flare rules of thumb — the exact conical pattern is not
+    yet implemented, and the notes say so rather than implying the two are equally solid.
+    """
 
     kind: ClassVar[str] = "Conical horn"
     aperture_diameter_m: float = 0.3
     axial_length_m: float = 0.3
-    #: Feeding circular waveguide diameter (0 = unspecified).
+    #: Feeding circular waveguide diameter (0 = not published; treated as a point apex,
+    #: which understates the slant and so gives a conservative gain).
     throat_diameter_m: float = 0.0
-    aperture_efficiency: float = OPTIMUM_HORN_EFFICIENCY
 
     def __post_init__(self) -> None:
         if self.aperture_diameter_m <= 0:
             raise ValueError("aperture diameter must be positive")
-        if not 0.0 < self.aperture_efficiency <= 1.0:
-            raise ValueError(
-                f"aperture efficiency must be in (0, 1], got {self.aperture_efficiency}"
-            )
+        if self.axial_length_m <= 0:
+            raise ValueError("axial length must be positive")
+        if 0 < self.aperture_diameter_m <= self.throat_diameter_m:
+            raise ValueError("throat diameter must be smaller than the aperture")
 
     @property
     def physical_area_m2(self) -> float:
         return math.pi * (self.aperture_diameter_m / 2.0) ** 2
+
+    @property
+    def slant_m(self) -> float:
+        return horns.conical_slant_m(
+            aperture_diameter_m=self.aperture_diameter_m,
+            axial_length_m=self.axial_length_m,
+            throat_diameter_m=self.throat_diameter_m,
+        )
 
     def parameters(self) -> dict[str, float]:
         return {
             "aperture_diameter_m": self.aperture_diameter_m,
             "axial_length_m": self.axial_length_m,
             "throat_diameter_m": self.throat_diameter_m,
-            "aperture_efficiency": self.aperture_efficiency,
+            "slant_m": self.slant_m,
         }
 
     def characterize(self, freq_hz: float) -> Characterization:
-        lam = 299_792_458.0 / freq_hz
-        gain_linear = self.aperture_efficiency * 4.0 * math.pi * self.physical_area_m2 / (lam * lam)
-        hpbw_e = CONICAL_HPBW_E_CONST * lam / self.aperture_diameter_m
-        hpbw_h = CONICAL_HPBW_H_CONST * lam / self.aperture_diameter_m
+        lam = C_M_S / freq_hz
+        slant = self.slant_m
+        s = horns.conical_phase_deviation(
+            aperture_diameter_m=self.aperture_diameter_m,
+            slant_m=slant,
+            wavelength_metres=lam,
+        )
+        gain = horns.conical_gain(
+            aperture_diameter_m=self.aperture_diameter_m,
+            slant_m=slant,
+            wavelength_metres=lam,
+        )
+        eta = gain / (4.0 * math.pi * self.physical_area_m2 / (lam * lam))
 
         notes = [
-            "Optimum-conical-horn approximations (Balanis ch. 13); assumes near-optimum flare.",
+            "Gain uses Balanis' empirical loss figure (13-59b), a cubic fit to measured "
+            "data rather than a derivation.",
+            "Beamwidths are the optimum-flare rules of thumb (60 and 70 lambda/d); unlike "
+            "the pyramidal case these are NOT computed from the aperture field, so they do "
+            "not track a badly-flared design. Treat them as indicative.",
         ]
-        if self.aperture_diameter_m / lam < 1.0:
+        if s > horns.CONICAL_LOSS_FIT_MAX_S:
             notes.append(
-                f"Aperture is {self.aperture_diameter_m / lam:.2f}λ across — too small for the "
-                "aperture approximation to be trusted."
+                f"Phase deviation s={s:.2f} is beyond where the loss-figure fit is "
+                f"trustworthy (~{horns.CONICAL_LOSS_FIT_MAX_S:g}); this gain is unreliable "
+                "and the horn is in any case badly over-flared."
+            )
+        if self.throat_diameter_m <= 0:
+            notes.append(
+                "Throat diameter unknown, so the apex is taken at the throat. That "
+                "understates the slant and overstates the phase error, making this gain a "
+                "conservative floor rather than a best estimate."
             )
 
         return characterization_from_gain(
             freq_hz=freq_hz,
-            gain_linear=gain_linear,
-            hpbw_e_deg=hpbw_e,
-            hpbw_h_deg=hpbw_h,
-            aperture_efficiency=self.aperture_efficiency,
+            gain_linear=gain,
+            hpbw_e_deg=CONICAL_HPBW_E_CONST * lam / self.aperture_diameter_m,
+            hpbw_h_deg=CONICAL_HPBW_H_CONST * lam / self.aperture_diameter_m,
+            aperture_efficiency=eta,
             detail={
                 "physical_area_m2": self.physical_area_m2,
+                "slant_m": slant,
+                "phase_deviation": s,
+                "loss_figure_db": horns.conical_loss_figure_db(s),
                 "aperture_wavelengths": self.aperture_diameter_m / lam,
-                "axial_length_m": self.axial_length_m,
             },
             notes=tuple(notes),
         )

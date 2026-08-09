@@ -31,6 +31,14 @@ whether a telescope will work.
    trade this project makes.
 5. **Predicted and measured never wear the same label.** From M8 real measurements arrive; they
    sit beside model output with separate provenance, always.
+6. **When a later milestone proves an earlier claim wrong, correct it visibly.** M1's physics
+   showed M0's BHARAT caveat had blamed the right gap on the wrong cause. The fix records
+   both the old explanation and why it was superseded. Silently overwriting a stale claim
+   destroys the reader's ability to trust any of the others.
+7. **Self-consistency is not verification.** The M1 geometry bug kept every internal check
+   green — round-trips, efficiency, phase deviations — because the error was in a conversion
+   everything downstream shared. Only Balanis' published worked examples caught it. Any new
+   physics needs an *external* anchor, not just tests that agree with each other.
 
 If a change seems to require breaking one of these, it is wrong — stop and say so.
 
@@ -72,8 +80,13 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
     `characterization_from_gain` so effective area stays consistent with reported gain.
   - `bands.py` — the frequencies that matter (HI, the four OH lines, methanol, deuterium, JOVE,
     GRAVES/BRAMS meteor beacons, L-band continuum, Ku).
-  - `apertures.py` — `ParabolicDish`, `PyramidalHorn`, `ConicalHorn`, plus `ruze_efficiency`
-    and `subtended_half_angle_deg`.
+  - `apertures.py` — the antenna *models*: `ParabolicDish`, `PyramidalHorn`, `ConicalHorn`,
+    plus `ruze_efficiency` and `subtended_half_angle_deg`. The horns delegate their physics
+    to `horns.py`.
+  - `horns.py` — the M1 horn engine: exact aperture-phase-error gain (Fresnel-integral form),
+    synthesis (`design_pyramidal_horn` / `design_conical_horn`), realizability, and patterns
+    computed by aperture integration. **Read its notation table before touching it** — the
+    axial/slant symbol distinction caused a real 7% bug.
   - `catalog.py` — `Template`, `Provenance`, `register`/`get`/`find`/`all_templates`, and
     `audit()` (the executable form of honesty invariant 3).
   - `cli.py` — `bands`, `list`, `show`, `characterize`.
@@ -134,7 +147,16 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M0 shipped — `v0.1.0` is released** (2026-08-08,
+**M1 shipped — `v0.2.0` is released** (2026-08-08). Horns became physics: exact aperture
+phase error, synthesis in both directions, realizability, and aperture-integrated patterns.
+Verified against Balanis Examples 13.5 and 13.6. It found two real things — a 7% geometry
+bug in our own first attempt (see invariant 7), and that the catalog's worked example is not
+a buildable horn. `jansky-forge design --gain-dbi 18` now turns a target into dimensions.
+**M2 (fabrication: fold-up templates, DXF, cut lists, BOM) is next** — the cut-panel slants
+it needs are already computed. Known gap carried forward: conical *patterns* are still the
+optimum-flare rules of thumb (the gain is exact); the notes say so.
+
+**M0 shipped — `v0.1.0` was released** (2026-08-08,
 [release](https://github.com/joebarbere/jansky-forge/releases/tag/v0.1.0)). `units`, `core`,
 `bands`, `apertures`, `catalog` with the audit, the CLI, the M0 skills and the
 physics-reviewer agent, CI + release workflows. 66 tests, 99% coverage, green on all three

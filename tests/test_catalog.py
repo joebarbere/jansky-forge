@@ -149,18 +149,22 @@ def test_salsa_beamwidth_agrees_with_the_observatory():
     assert predicted == pytest.approx(template.published["hpbw_deg"], rel=0.10)
 
 
-def test_bharat_gain_falls_short_by_the_dual_mode_advantage():
-    """The paper measures 20.6 dBi; a generic 51%-efficient cone predicts ~19.5 dBi.
+def test_bharat_gain_gap_shrank_when_m1_modelled_the_phase_error():
+    """M0 predicted 19.46 dBi and blamed the 1.1 dB shortfall on the Potter dual-mode design.
 
-    The ~1.1 dB gap is the Potter dual-mode design outperforming a simple conical horn — real
-    physics our M0 model does not represent. Recorded, not erased.
+    M1 computes the actual aperture phase error and predicts ~20.25 dBi against the paper's
+    measured 20.6 — so most of that "dual-mode advantage" was really phase error being
+    mismodelled. This test pins the corrected number AND asserts the record of the earlier
+    wrong explanation survives in the caveats, because quietly overwriting a superseded
+    claim is how a project stops being trustworthy.
     """
     template = catalog.get("bharat-horn")
     predicted = template.characterize().gain_dbi
     published = template.published["gain_dbi"]
-    assert predicted == pytest.approx(19.46, abs=0.1)
-    assert 0.7 < published - predicted < 1.5
-    # And the reason is stated where a reader will find it.
+    assert predicted == pytest.approx(20.25, abs=0.1)
+    assert 0.2 < published - predicted < 0.5
+    assert any("CORRECTED AT M1" in c for c in template.caveats)
+    # The residual really is the dual-mode effect, and it is still not tuned away.
     assert any("dual-mode" in c or "Potter" in c for c in template.caveats)
 
 
@@ -170,14 +174,40 @@ def test_physicsopenlab_horn_gain_agrees_with_its_published_figure():
     assert predicted == pytest.approx(template.published["gain_dbi"], abs=0.2)
 
 
-def test_worked_example_horn_hits_its_design_gain():
-    """Our model versus an independent implementation of the same textbook synthesis.
+def test_worked_example_horn_is_reported_as_not_buildable():
+    """M1 found the catalog's own worked example is not a realizable single horn.
 
-    Two independent codes agreeing on 18 dBi from identical geometry is a genuine check on our
-    arithmetic — though it is agreement about theory, which the template's caveats say plainly.
+    Its source quotes two different axial flare lengths (682 and 578 mm) because it
+    optimized the E- and H-plane sectoral horns independently. Both are entered on purpose
+    so the model reports the defect rather than hiding it behind a plausible gain figure.
     """
     template = catalog.get("horn-18dbi-worked")
-    assert template.characterize().gain_dbi == pytest.approx(18.0, abs=0.15)
+    char = template.characterize()
+    assert any("NOT a single buildable pyramidal horn" in n for n in char.notes)
+    assert any("NOT A BUILDABLE HORN AS SPECIFIED" in c for c in template.caveats)
+    # The precise diagnosis: the source equalized the slants, not the axial lengths.
+    assert char.detail["slant_e_m"] == pytest.approx(char.detail["slant_h_m"], rel=1e-3)
+    # And because it is over-flared in H, it falls short of its own 18 dBi target.
+    assert char.gain_dbi < template.published["gain_dbi"]
+
+
+def test_worked_example_geometry_would_hit_18_dbi_if_it_were_realizable():
+    """Sanity: the E-plane half of that design is sound; only the mismatch spoils it.
+
+    Rebuilding it with one consistent axial length recovers essentially the target gain,
+    which is what tells us the source's equations were right and only its realizability
+    constraint was missing.
+    """
+    from jansky_forge.apertures import PyramidalHorn
+
+    fixed = PyramidalHorn(
+        aperture_a_m=0.73219,
+        aperture_b_m=0.59786,
+        axial_length_m=0.68185,
+        waveguide_a_m=0.177034,
+        waveguide_b_m=0.082899,
+    )
+    assert fixed.characterize(BANDS["hi"].freq_hz).gain_dbi == pytest.approx(18.0, abs=0.4)
 
 
 def test_itty_bitty_beamwidth_disagreement_is_recorded():

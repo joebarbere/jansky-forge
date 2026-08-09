@@ -13,7 +13,7 @@ import json
 import sys
 from collections.abc import Sequence
 
-from jansky_forge import catalog
+from jansky_forge import catalog, horns
 from jansky_forge.bands import BANDS, get_band
 
 
@@ -118,6 +118,74 @@ def _as_json(template: catalog.Template, freq_hz: float | None) -> str:
     )
 
 
+#: Standard rectangular waveguides, internal dimensions in metres (a = broad wall).
+#: WR-650 is the L-band part an amateur 21 cm horn is normally fed with.
+WAVEGUIDES: dict[str, tuple[float, float]] = {
+    "wr650": (0.16510, 0.08255),
+    "wr430": (0.10922, 0.05461),
+    "wr340": (0.08636, 0.04318),
+    "wr284": (0.07214, 0.03404),
+    "wr90": (0.02286, 0.01016),
+}
+
+
+def _parse_waveguide(spec: str) -> tuple[float, float]:
+    """A named standard, or 'AxB' in millimetres."""
+    key = spec.lower().replace("-", "")
+    if key in WAVEGUIDES:
+        return WAVEGUIDES[key]
+    if "x" in key:
+        a_mm, _, b_mm = key.partition("x")
+        try:
+            return float(a_mm) / 1000.0, float(b_mm) / 1000.0
+        except ValueError:
+            pass
+    raise SystemExit(
+        f"unrecognized waveguide {spec!r}; use one of {', '.join(sorted(WAVEGUIDES))} "
+        "or give 'AxB' in mm (e.g. 165.1x82.55)"
+    )
+
+
+def _print_design(args) -> None:  # noqa: ANN001 - argparse namespace
+    freq_hz = args.freq_mhz * 1e6 if args.freq_mhz else get_band(args.band).freq_hz
+
+    if args.shape == "conical":
+        cone = horns.design_conical_horn(gain_dbi=args.gain_dbi, freq_hz=freq_hz)
+        print(f"Optimum conical horn — {cone.summary()}")
+        print("\n  cut to:")
+        print(f"    aperture diameter            {cone.aperture_diameter_m * 1000:9.1f} mm")
+        print(f"    axial length                 {cone.axial_length_m * 1000:9.1f} mm")
+        print(f"    slant (apex to rim)          {cone.slant_m * 1000:9.1f} mm")
+        print("\n  Gain uses Balanis' empirical loss figure; see 'show' notes for its limits.")
+        return
+
+    wg_a, wg_b = _parse_waveguide(args.waveguide)
+    design = horns.design_pyramidal_horn(
+        gain_dbi=args.gain_dbi, freq_hz=freq_hz, waveguide_a_m=wg_a, waveguide_b_m=wg_b
+    )
+    print(f"Optimum pyramidal horn — {design.summary()}")
+    print("\n  cut to:")
+    print(f"    aperture a1 (H-plane, wide)  {design.aperture_a1_m * 1000:9.1f} mm")
+    print(f"    aperture b1 (E-plane, tall)  {design.aperture_b1_m * 1000:9.1f} mm")
+    print(f"    axial length (p_e = p_h)     {design.axial_length_m * 1000:9.1f} mm")
+    print(f"    waveguide a x b              {wg_a * 1000:9.1f} x {wg_b * 1000:.1f} mm")
+    print("\n  geometry:")
+    print(
+        f"    rho1 / rho2 (axial to apex)  {design.rho1_m * 1000:9.1f} / {design.rho2_m * 1000:.1f} mm"
+    )
+    print(
+        f"    rho_e / rho_h (slant to rim) {design.slant_e_m * 1000:9.1f} / {design.slant_h_m * 1000:.1f} mm"
+    )
+    print(
+        f"    phase deviation s / t        {design.phase_deviation_e:9.4f} / "
+        f"{design.phase_deviation_h:.4f}  (optima 0.25 / 0.375)"
+    )
+    print(
+        "\n  Both flares share one axial length, so this is buildable as a single horn — "
+        "\n  which is not true of every published design; see 'show horn-18dbi-worked'."
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="jansky-forge",
@@ -135,6 +203,24 @@ def build_parser() -> argparse.ArgumentParser:
     p_show.add_argument("slug", help="Template slug (see 'list')")
     p_show.add_argument("--freq-mhz", type=float, help="Characterize at this frequency instead")
     p_show.add_argument("--json", action="store_true", help="Machine-readable output")
+
+    p_design = sub.add_parser(
+        "design", help="Synthesize a horn for a target gain (M1): gain in, dimensions out"
+    )
+    p_design.add_argument("--gain-dbi", type=float, required=True, help="Target gain in dBi")
+    p_design.add_argument(
+        "--band", default="hi", help="Design band slug (default: hi, the hydrogen line)"
+    )
+    p_design.add_argument("--freq-mhz", type=float, help="Design frequency, overrides --band")
+    p_design.add_argument(
+        "--shape", choices=["pyramidal", "conical"], default="pyramidal", help="Horn type"
+    )
+    p_design.add_argument(
+        "--waveguide",
+        default="wr650",
+        help="Feeding waveguide for a pyramidal horn: a named standard (wr650, wr430, wr340, "
+        "wr284, wr90) or 'AxB' in mm, e.g. '165.1x82.55'",
+    )
 
     p_char = sub.add_parser(
         "characterize", help="Characterize a template across one or more frequencies"
@@ -159,6 +245,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "list":
         _print_list(args.band, args.kind)
+        return 0
+
+    if args.command == "design":
+        _print_design(args)
         return 0
 
     template = catalog.get(args.slug)

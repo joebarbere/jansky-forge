@@ -337,12 +337,20 @@ register(
             "aperture_efficiency": 0.663,
         },
         caveats=(
-            "This is a dual-mode (Potter) horn: a step discontinuity excites the TM11 mode to "
-            "clean up the pattern, and it reaches 66.3% aperture efficiency. Our generic "
-            "conical model assumes the optimum-single-mode 51%, so it predicts about 19.5 dBi "
-            "against the paper's measured 20.6 dBi. That ~1.1 dB gap is the dual-mode design "
-            "doing its job, not a model error — and it is left in place rather than erased by "
-            "adopting the paper's efficiency, so the comparison stays meaningful.",
+            "CORRECTED AT M1. The M0 model assumed a flat 51% aperture efficiency, predicted "
+            "19.46 dBi against the paper's measured 20.6, and attributed the 1.1 dB gap to "
+            "this horn's dual-mode (Potter) design. That explanation was mostly wrong: once "
+            "M1 computed the actual aperture phase error, the prediction rose to ~20.25 dBi "
+            "and the gap fell to ~0.35 dB. Most of what looked like a dual-mode advantage was "
+            "simply phase error being mismodelled. The lesson is kept on the record rather "
+            "than quietly overwritten.",
+            "It IS a dual-mode (Potter) horn — a step discontinuity excites TM11 to clean up "
+            "the pattern, and the paper reports 66.3% aperture efficiency against our ~63.8%. "
+            "That residual is a real effect our single-mode model does not represent, and it "
+            "is left in place rather than erased by adopting the paper's efficiency.",
+            "The throat diameter is not published, so the apex is taken at the throat: this "
+            "understates the slant, overstates the phase error, and makes our gain a "
+            "conservative floor. A known throat would close the remaining gap further.",
             "The published 16.5 deg FWHM was measurable in the E-plane only; separate E- and "
             "H-plane widths are not published, so only one of our two predicted widths can be "
             "checked.",
@@ -432,6 +440,7 @@ register(
             aperture_a_m=0.73219,
             aperture_b_m=0.59786,
             axial_length_m=0.68185,
+            axial_length_h_m=0.57836,
             waveguide_a_m=0.177034,
             waveguide_b_m=0.082899,
         ),
@@ -451,9 +460,18 @@ register(
             "predict about 18.0 dBi against the calculator's 18 dBi target. Two independent "
             "implementations of the same textbook equations agreeing is worth something — but "
             "it is agreement about theory, not about reality.",
-            "The source quotes different E- and H-plane axial lengths (682 and 578 mm); the "
-            "E-plane value is used here. A real pyramidal horn must reconcile the two, which is "
-            "exactly what the M1 synthesis step will do properly.",
+            "NOT A BUILDABLE HORN AS SPECIFIED — found by M1. The source quotes different "
+            "E- and H-plane axial lengths (682 and 578 mm), a 15% disagreement, because it "
+            "optimizes the two sectoral horns independently. A pyramidal horn is one frustum "
+            "with ONE axial length, so these two flares would have to start at different "
+            "points on the waveguide. Both lengths are entered here deliberately so the model "
+            "reports the problem; jansky-forge's own synthesis enforces realizability.",
+            "The precise diagnosis, visible in the model output: this geometry has "
+            "slant_e = 846.18 mm and slant_h = 846.10 mm — equal to four figures. The source "
+            "equalized the two SLANT lengths (Balanis' rho_e, rho_h) where realizability "
+            "requires equal AXIAL lengths (p_e, p_h). It is a subtle and very plausible "
+            "confusion of two similar symbols, and it is why the same mistake is guarded "
+            "against in this package's own notation table.",
             "The quoted throat (177.0 x 82.9 mm) is close to but not equal to standard WR-650 "
             "(165.1 x 82.55 mm) — check what waveguide you actually have before cutting.",
         ),
