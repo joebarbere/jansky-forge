@@ -111,6 +111,15 @@ The same standard as the sibling repos, applied to hardware:
 
 ## Status
 
+**M6 (`v0.7.0`) — Tier-2 validation.** The button that says *check that*. A `pymininec`
+backend solves the same antenna numerically, and it closed both disagreements M5 shipped: the
+short-boom Yagi (Tier 1 read 4.47 dBi, Tier 2 gives 6.49, published 6.75) and the JOVE array's
+mutual coupling (2.75 dB stacking rather than the ideal 3.01). It also produces **feed
+impedance**, which Tier 1 structurally cannot — and which explains why the published
+7-element Yagi uses a folded driven element.
+
+Optional: `pip install jansky-forge[mom]`. Tier 1 is unchanged without it.
+
 **M5 (`v0.6.0`) — wire antennas and arrays.** Dipoles, folded dipoles, arrays, and the thing
 that dominates every HF antenna: **the ground**. A horizontal dipole works with its own
 inverted image in the earth, so height is a beam-steering control rather than a mounting

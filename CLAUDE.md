@@ -110,6 +110,9 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
   - `wires.py` — M5: dipoles, folded dipoles, the exact array factor, Fresnel ground
     reflection, and dipole-over-ground. **Yagis are boom-length only by design** — element
     modelling belongs to M6's MoM tier, and the docstring, the notes and a test all say so.
+  - `mom.py` — M6, Tier 2: backend-neutral `WireModel`, the `MomBackend` protocol, the
+    `pymininec` backend, and `to_nec_deck()` (an export, never a linked GPL solver).
+    **Optional extra**; CI installs it so the validation runs rather than skipping.
   - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`, `feed`,
     `probe`, `sensitivity`, `sources`.
 - `tests/` — pure, offline, no hardware and no network, ever. Golden values carry their
@@ -195,7 +198,22 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M5 shipped — `v0.6.0` is released** (2026-08-09). Wire antennas, and with them the
+**M6 shipped — `v0.7.0` is released** (2026-08-09). Tier 2 exists, and it closed both
+tickets M5 wrote: the short-boom Yagi gap (4.47 analytic vs 6.49 MoM vs 6.75 published) and
+the JOVE mutual coupling (2.75 dB stacking rather than the ideal 3.01, with feed impedance
+shifting 17 ohms when the neighbour appears). The JOVE one is an **honest partial** — NASA's
+pair implies ~2.0 dB, so about a quarter of the gap is recovered and the rest is still open.
+
+Watch for two traps this milestone hit: the solver's gain array holds
+`[component_1, component_2, total]`, so reading index 0 silently returns one polarization
+(it surfaced as impossible negative Yagi gain); and mismatch is a **ratio**, so judging a
+match by `|Z - 50|` is wrong — 20 and 80 ohms are equidistant by difference and have SWRs of
+2.5 and 1.6.
+
+**M7 (measurement ingest — scikit-rf, NanoVNA Touchstone, measured vs predicted) is next**,
+and M6 hands it the predicted feed impedances to compare against.
+
+**M5 shipped — `v0.6.0` was released** (2026-08-09). Wire antennas, and with them the
 `radio-jove` and two `graves-yagi-*` catalogue entries that waited from M0 for a model that
 could evaluate them. Anchors: NASA's published 5.8 dBi single-dipole gain (we get 5.89 over
 average ground) and their 23.28 ft element length (we get 23.24).
