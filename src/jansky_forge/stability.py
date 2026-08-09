@@ -58,11 +58,30 @@ UNILATERAL_FLOOR = 1e-12
 def determinant(s: np.ndarray) -> complex:
     """Δ = S11·S22 − S12·S21, the S-matrix determinant.
 
-    Appears in every stability expression. ``|Δ| < 1`` is half of the classical criterion and
-    is on its own the condition that the device is not already unstable with both ports
-    terminated in the reference impedance.
+    Appears in every stability expression, and ``|Δ| < 1`` is half of the classical
+    criterion. It is **not** on its own a statement about behaviour at the reference
+    impedance — that is ``|S11| < 1 and |S22| < 1``, and the two come apart in both
+    directions. ``S11 = 1.5, S12 = 0, S21 = 5, S22 = 0.1`` has ``|Δ| = 0.15`` and is unstable
+    at Z0; ``S11 = S22 = 0, S12 = S21 = 1.2`` has ``|Δ| = 1.44`` and is stable at Z0.
     """
     return complex(s[0, 0] * s[1, 1] - s[0, 1] * s[1, 0])
+
+
+def is_passive(s: np.ndarray) -> bool:
+    """Can this network deliver more power than it is given, into any termination?
+
+    The test is the largest singular value of S: ``σmax ≤ 1`` means the scattering matrix is
+    a contraction, so no termination can extract net power, and the device is unconditionally
+    stable as a matter of arithmetic.
+
+    **This is the test for "does stability need checking", and ``|S21| > 1`` is not.** A
+    lossless filter in front of an unstable amplifier leaves K, μ and the unstable loads
+    exactly where they were while pushing ``|S21|`` below 1 — a perfectly ordinary
+    "filtered LNA module" ``.s2p``. Gating on gain would skip precisely the device the check
+    exists for. Activity can also live entirely in the reflection coefficients: a
+    negative-resistance stage with ``|S11| = 1.6`` and ``|S21| = 0.5`` has ``μ = −1.9``.
+    """
+    return bool(np.linalg.svd(np.asarray(s), compute_uv=False).max() <= 1.0)
 
 
 def rollett_k(s: np.ndarray) -> float:
@@ -240,6 +259,8 @@ def max_stable_gain_db(s: np.ndarray) -> float:
     is why it is quoted for K < 1 parts. It ignores the match entirely, so treat it as an
     upper bound you will not reach rather than a design target.
     """
+    if abs(s[1, 0]) == 0.0:
+        return -math.inf  # no forward transmission: no gain, stable or otherwise
     if abs(s[0, 1]) < UNILATERAL_FLOOR:
         return math.inf
     return float(10 * math.log10(abs(s[1, 0] / s[0, 1])))
@@ -253,16 +274,28 @@ def max_available_gain_db(s: np.ndarray) -> float:
     so this raises rather than returning MSG under a different name — quietly substituting one
     for the other is how a K < 1 device ends up quoted at its MSG in a link budget.
     """
-    k = rollett_k(s)
-    if k <= 1:
+    if not is_unconditionally_stable(s):
+        k = rollett_k(s)
         raise ValueError(
-            f"K = {k:.3f} ≤ 1, so this device is potentially unstable and has no maximum "
-            "available gain. MSG (max_stable_gain_db) is the relevant ceiling, and it applies "
-            "only after the device has been stabilised."
+            f"this device is not unconditionally stable (K = {k:.3f}, |Δ| = "
+            f"{abs(determinant(s)):.3f}, μ = {mu_load(s):.3f}), so it has no maximum available "
+            "gain — there are passive loads for which the gain is unbounded. MSG "
+            "(max_stable_gain_db) is the relevant ceiling, and it applies only after the "
+            "device has been stabilised. Note that K > 1 alone is NOT enough: |Δ| < 1 is the "
+            "other half, and a device can satisfy one without the other."
         )
-    if math.isinf(k):
-        return max_stable_gain_db(s)
-    return float(max_stable_gain_db(s) + 10 * math.log10(k - math.sqrt(k * k - 1)))
+    if math.isinf(rollett_k(s)):
+        # Unilateral. MAG is finite — it is the S12 → 0 limit of MSG·(K − √(K²−1)), which is
+        # the unilateral transducer gain with both ports conjugate-matched. Returning MSG
+        # (infinite) would claim a unilateral amplifier can deliver unlimited power gain.
+        return float(
+            10 * math.log10(abs(s[1, 0]) ** 2 / ((1 - abs(s[0, 0]) ** 2) * (1 - abs(s[1, 1]) ** 2)))
+        )
+    k = rollett_k(s)
+    # Algebraically identical to MSG + 10·log10(K − √(K²−1)), and numerically stable. The
+    # subtractive form cancels catastrophically for large K: at K = 1.3e8 it is 5.8 dB high,
+    # and by K = 3.8e8 it underflows to log10(0).
+    return float(max_stable_gain_db(s) - 10 * math.log10(k + math.sqrt(k * k - 1)))
 
 
 @dataclass(frozen=True)
@@ -278,8 +311,14 @@ class Stability:
 
     @property
     def margin(self) -> float:
-        """How much room there is, as the μ factor. Above 1 is stable; bigger is better."""
-        return self.mu
+        """How much room there is: the **tighter** of the two μ factors.
+
+        μ and μ′ cross 1 together, so the verdict never depends on which you use — but the
+        *margin* does, and μ′ is the smaller one about half the time. Reporting μ alone would
+        name the wrong frequency as "where it will oscillate first" whenever the source plane
+        is the binding one.
+        """
+        return min(self.mu, self.mu_source)
 
     def summary(self) -> str:
         verdict = "unconditionally stable" if self.is_unconditional else "POTENTIALLY UNSTABLE"
@@ -311,7 +350,7 @@ class StabilityReport:
     @property
     def worst(self) -> Stability:
         """The frequency with the least margin — where it will oscillate first."""
-        return min(self.points, key=lambda point: point.mu)
+        return min(self.points, key=lambda point: point.margin)
 
     @property
     def unstable_points(self) -> tuple[Stability, ...]:
@@ -326,11 +365,19 @@ class StabilityReport:
             )
         unstable = self.unstable_points
         worst = self.worst
-        span = (
-            f"{unstable[0].freq_hz / 1e6:.3f}-{unstable[-1].freq_hz / 1e6:.3f} MHz"
-            if len(unstable) > 1
-            else f"{unstable[0].freq_hz / 1e6:.3f} MHz"
-        )
+        if len(unstable) == 1:
+            span = f"{unstable[0].freq_hz / 1e6:.3f} MHz"
+        else:
+            # "1.9-2.1 GHz" reads as a band. Only say it when the unstable points really are
+            # consecutive; otherwise say they are scattered, because which frequencies are
+            # safe in between is the actionable part.
+            indices = [i for i, point in enumerate(self.points) if not point.is_unconditional]
+            contiguous = indices == list(range(indices[0], indices[-1] + 1))
+            joiner = "-" if contiguous else " and "
+            span = (
+                f"{unstable[0].freq_hz / 1e6:.3f}{joiner}{unstable[-1].freq_hz / 1e6:.3f} MHz"
+                + ("" if contiguous else ", not contiguous")
+            )
         return (
             f"POTENTIALLY UNSTABLE at {len(unstable)} of {len(self.points)} points ({span}); "
             f"worst μ = {worst.mu:.3f} at {worst.freq_hz / 1e6:.3f} MHz"
@@ -379,12 +426,16 @@ def analyse(network: TwoPort) -> StabilityReport:
 
 
 def stability_notes(network: TwoPort) -> tuple[str, ...]:
-    """The one-line warning to attach to any active network the tool touches.
+    """The one-line warning to attach to any network the tool touches.
 
-    Empty for a passive network, which cannot oscillate and does not need telling.
+    Empty for a network that is stable everywhere, which is automatically the case for a
+    passive one — so no gate is needed and none is applied. An earlier version skipped the
+    analysis entirely when ``max|S21| ≤ 1``, on the theory that only amplifiers can
+    oscillate. That is false, and it failed in the direction that matters: putting a lossless
+    filter in front of an unstable amplifier leaves K, μ and the unstable loads untouched
+    while dropping ``|S21|`` below 1, so the warning vanished from exactly the file — a
+    filtered LNA module — most likely to be handed to this tool.
     """
-    if float(np.max(np.abs(network.s21))) <= 1.0:
-        return ()
     report = analyse(network)
     if report.is_unconditional:
         return ()

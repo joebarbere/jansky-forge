@@ -75,6 +75,27 @@ one, and each collapse is a bug that cannot be seen.
 
 ---
 
+## A gate is a place bugs hide
+
+N1's automatic stability check was gated on `max|S21| > 1` — "only amplifiers oscillate". The
+check itself was correct and thoroughly verified. The *gate* silently excluded a filtered LNA
+module, which is the single most likely thing to be handed to this tool: a lossless filter in
+front of an unstable amplifier leaves K, μ and the unstable loads untouched while dropping
+|S21| below 1. Same device, same danger, no warning.
+
+The check was tested. The gate was tested only on inputs where it happened to be right.
+
+Two habits from it:
+
+- **When you add a guard clause, write the test for what it excludes**, not for what it lets
+  through. The excluded set is where the reasoning is, and it is invisible in coverage — the
+  early return was covered, by a passive attenuator, and covered means nothing here.
+- **Prefer no gate.** `analyse()` costs microseconds and `is_unconditional` already answers
+  the question, so the gate was buying nothing and risking everything. A cheap computation
+  guarded by a cheap-but-wrong heuristic is strictly worse than just doing the computation.
+
+---
+
 ## Review the fix, not just the code
 
 N0's first review found a factor-of-two physics error. The fix was correct — and introduced

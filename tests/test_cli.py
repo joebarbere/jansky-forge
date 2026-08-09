@@ -484,7 +484,8 @@ def test_network_diagnoses_an_unstable_device_instead_of_crashing(tmp_path, caps
     assert cli.main(["network", str(path)]) == 0
     out = capsys.readouterr().out
     assert "transducer" in out and "+9.5" in out  # this one is still defined
-    assert out.count("undefined") == 2  # available and operating are not
+    # available and operating gain, plus MAG — all three genuinely undefined here
+    assert out.count("undefined") == 3
     assert "returns more power than it receives" in out
     assert "N1's stability circles" in out
 
@@ -505,7 +506,9 @@ def test_network_reports_stability_for_an_amplifier(tmp_path, capsys):
     assert "K = 0.607" in out and "0.696" in out  # the textbook numbers
     assert "source stability circle" in out and "load stability circle" in out
     assert "max stable gain (MSG)" in out and "21.93" in out
-    assert "does not exist for a K < 1 device" in out  # MAG must not be substituted
+    # MAG must not be substituted by MSG, and the reason must not assert "K < 1":
+    # a device can fail unconditional stability on |Δ| instead, with K > 1 printed above.
+    assert "undefined: not unconditionally stable" in out
     assert "does not mean the part is faulty" in out
 
 

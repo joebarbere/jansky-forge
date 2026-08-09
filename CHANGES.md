@@ -58,6 +58,45 @@ stability proof.
   were not thinking about — and the vendor's sweep often does not go there, which the notes
   say out loud.
 
+### Fixed after an independent RF review
+The review confirmed the core algebra — K, Δ, both μ factors (the naming is right: `mu_load`
+really does measure the ΓL plane, checked by binary search for the largest all-stable load
+disk), both circles (`|Γin|` deviates from 1 by at most 2.6e-11 over 4000 networks), the
+stable-side determination (20 000 networks × both planes × 24 probe points, zero errors), and
+`excludes_passive` (30 000 networks, zero mismatches). It found six defects, all in the gain
+functions and the automatic check:
+
+- **The automatic check skipped exactly the devices it exists for.** `stability_notes` gated
+  on `max|S21| > 1`, on the theory that only amplifiers oscillate. A **lossless filter in
+  front of an unstable amplifier leaves K, μ and the unstable loads untouched while pushing
+  |S21| below 1** — so a filtered LNA module, the file most likely to be handed to this tool,
+  got no warning. Same K = 0.6071, same μ = 0.8628, same oscillating loads, silence. Activity
+  can also live entirely in the reflections: a negative-resistance stage with |S11| = 1.6 and
+  |S21| = 0.5 has μ = −1.9 and was likewise skipped. There is now **no gate** — `analyse()`
+  runs and `is_unconditional` decides, which is microseconds — and `is_passive()` (σmax ≤ 1)
+  is the correct test where one is genuinely needed.
+- **`max_available_gain_db` accepted K > 1 with |Δ| > 1**, committing the exact misuse the
+  module's own docstring names. For one such device there are passive loads driving |Γin| to
+  820 — the true supremum of gain is unbounded — and it returned a tidy −10.37 dB. It now
+  requires unconditional stability.
+- **MAG lost accuracy and then crashed at high K.** `K − √(K²−1)` cancels catastrophically:
+  5.8 dB high by K = 1.3e8, and `log10(0)` by K = 3.8e8 — which the CLI then reported as
+  *"does not exist for a K < 1 device"* above a printed K of 3.8e8. Replaced by the
+  algebraically identical `MSG − 10·log10(K + √(K²−1))`, exact at every K tested.
+- **MAG returned infinity for a unilateral device.** It is finite: the S12 → 0 limit is
+  `|S21|²/((1−|S11|²)(1−|S22|²))` = 21.1668 dB for the test part, confirmed by brute force
+  (21.158 dB) and by watching the general formula converge. Infinity claimed a unilateral
+  amplifier can deliver unlimited power gain. **A test pinned the wrong value.**
+- `max_stable_gain_db` raised `math domain error` for `S21 = 0`; it now returns −∞.
+- `determinant`'s docstring claimed `|Δ| < 1` means the device is stable at the reference
+  impedance. False in both directions — that condition is `|S11| < 1 and |S22| < 1`.
+
+Also, on the review's observation: **`margin` and `worst` now use the tighter of μ and μ′.**
+μ′ is the smaller of the two in roughly half of unconditionally stable devices, so ranking by
+μ alone could name the wrong frequency as "where it will oscillate first". The verdict was
+never affected — they cross 1 together — but the margin is the number people act on. And a
+scattered unstable set is no longer summarised as though it were a contiguous band.
+
 ### Fixed
 - `mu_load`'s docstring claimed it returns infinity for any unilateral device. It does not,
   and should not: with no feedback the load still sees S22, so μ = `1/|S22|` and the load

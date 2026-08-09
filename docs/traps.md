@@ -156,6 +156,18 @@ two-port files only. Reading a `.s2p` the obvious way transposes the device:
 Smoke alarm: `TwoPort.is_reciprocal`. An amplifier that reads reciprocal has almost certainly
 been read wrong.
 
+### `|S21| > 1` is not the test for "is this thing active"
+
+A **lossless filter in front of an unstable amplifier** leaves K, μ and the unstable loads
+exactly where they were while pushing `|S21|` far below 1. A filtered LNA module can read
+like a lossy passive part by transmission alone and still oscillate into ordinary loads.
+
+Activity can also live entirely in the reflection coefficients: `|S11| = 1.6` with
+`|S21| = 0.5` is a negative-resistance stage with μ = −1.9.
+
+The test for passivity is **σmax(S) ≤ 1** — the largest singular value. That is
+`stability.is_passive()`, and it is what the tool gates on.
+
 ### "I swept it and it looked fine" is not a stability proof
 
 Some devices have an unstable region a few **thousandths** of a Smith chart across, sitting

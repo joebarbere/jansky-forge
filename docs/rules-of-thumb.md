@@ -182,6 +182,13 @@ spillover is costing you 21 K, fix the feed first. Compare terms before buying p
 | MSG (K < 1) | `\|S21/S12\|` |
 | MAG (K > 1 only) | `\|S21/S12\|·(K − √(K²−1))` |
 
+**MAG needs both halves.** `K > 1` **and** `|Δ| < 1`. A device with K = 4.87 and |Δ| = 5.44
+has passive loads driving `|Γin|` to 820 — its gain is unbounded, not the tidy number the
+formula returns.
+
+**Compute MAG as `MSG − 10·log10(K + √(K²−1))`**, never `MSG + 10·log10(K − √(K²−1))`. The
+subtractive form cancels: 5.8 dB high by K = 1.3e8, and `log10(0)` shortly after.
+
 **μ is a distance.** μ = 1.4 means every load out to `|Γ| = 1.4` is safe, so the passive
 region has margin. μ = 0.86 means an oscillating load exists at `|Γ| = 0.86` — inside the
 Smith chart, so your matches are not free choices. Exactly: `μ = |C_L| − R_L`.

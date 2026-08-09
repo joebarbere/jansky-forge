@@ -472,7 +472,9 @@ def _print_stability(network, freq_hz: float) -> None:  # noqa: ANN001 - TwoPort
     """
     from jansky_forge import stability as stab
 
-    if float(np.max(np.abs(network.s21))) <= 1.0:
+    # Passivity, not gain: a lossless filter ahead of an unstable amplifier drops |S21|
+    # below 1 without changing K or μ at all.
+    if all(stab.is_passive(network.s[index]) for index in range(network.freq_hz.size)):
         return  # passive: it cannot oscillate, and saying so would be noise
 
     report = stab.analyse(network)
@@ -488,7 +490,11 @@ def _print_stability(network, freq_hz: float) -> None:  # noqa: ANN001 - TwoPort
     try:
         print(f"    max available gain (MAG)   {stab.max_available_gain_db(s):8.2f} dB")
     except ValueError:
-        print("    max available gain (MAG)       — does not exist for a K < 1 device")
+        # Do not assert a reason. MAG is undefined for any device that is not
+        # unconditionally stable, and K < 1 is only one way to fail that — a device with
+        # K = 4.87 and |Δ| = 5.44 fails on the other half, and saying "K < 1" above a
+        # printed K of 4.87 would be visibly self-contradictory.
+        print("    max available gain (MAG)       — undefined: not unconditionally stable")
 
     if not stab.is_unconditionally_stable(s):
         for plane in ("source", "load"):
