@@ -5,6 +5,14 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+### Added
+- Vendored the third-party `simple-english` skill (ASD-STE100 Simplified Technical English;
+  MIT, AminBlg/SimpleEnglish, pinned commit). Kept in git rather than installed globally so
+  a reviewer can see what the agent was told. `CLAUDE.md` records where it applies —
+  reader-facing prose, and especially M2's fabrication instructions — and where it must not:
+  model notes and catalog caveats, because STE's restrictions on "should"/"may"/"might"
+  would strip the calibrated uncertainty the honesty invariants exist to protect.
+
 ## [0.2.0] — M1, Horn designer
 
 Horns stop being an assumption and become physics. M0 modelled every horn as if its flare
