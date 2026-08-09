@@ -111,6 +111,19 @@ The same standard as the sibling repos, applied to hardware:
 
 ## Status
 
+**M5 (`v0.6.0`) — wire antennas and arrays.** Dipoles, folded dipoles, arrays, and the thing
+that dominates every HF antenna: **the ground**. A horizontal dipole works with its own
+inverted image in the earth, so height is a beam-steering control rather than a mounting
+detail — low and the lobe is overhead, high and it drops toward the horizon.
+
+Validated against NASA's Radio JOVE manual: their published 5.8 dBi single-dipole gain
+(we compute 5.89 over average ground) and their 23.28 ft element length (we compute 23.24).
+This finally unlocks the `radio-jove` and meteor-scatter Yagi catalogue entries, which waited
+from M0 for a model that could evaluate them.
+
+Yagis are modelled by **boom length only** — element design is what M6's method-of-moments
+tier is for, and a plausible-looking analytic element model would be worse than none.
+
 **M4 (`v0.5.0`) — sensitivity.** Antenna numbers become telescope numbers: system
 temperature as a budget you can act on, SEFD, G/T, the radiometer equation, time-to-detect,
 and "how big a dish do I need?" solved backwards.
