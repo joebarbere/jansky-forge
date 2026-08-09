@@ -43,9 +43,19 @@ optional path in this project is **installed in CI so its tests actually run**:
 
 - the `jansky` course, for the radiometer cross-check (M4)
 - `pymininec`, for Tier-2 validation (M6)
-- `scikit-rf`, for the Touchstone reader cross-check (M7)
+- `scikit-rf`, for the Touchstone reader cross-check (M7 one-port, N0 two-port)
 
 Verify in the CI log that they *passed* rather than skipped. It has been checked each time.
+
+**And the lesson caught itself at N0.** The CI step installs the extras and then names the
+test files explicitly. A new module's tests are not in that list, so N0's scikit-rf
+cross-check — written specifically to run in CI — skipped on the first push, while the job
+went green. Checking the log is what found it.
+
+The naming is the flaw: an allow-list has to be extended by whoever adds a test, and nothing
+reminds them. It stays for now because the alternative (run the whole suite again with extras
+installed) doubles a step that already takes most of the job, but **adding a milestone means
+adding its test file to that line** — and then reading the log to confirm the count went up.
 
 ---
 

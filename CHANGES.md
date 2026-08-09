@@ -60,6 +60,11 @@ confusion the module exists to prevent.
   S21 lands in**. CI installs the extra so this runs rather than skips.
 
 ### Fixed
+- **The scikit-rf cross-check skipped in CI on the first push.** The optional-extras job
+  installs the dependency and then names test files explicitly; `tests/test_twoport.py` was
+  not on the list, so the guard written to run in CI did not run while the job went green.
+  This is the project's own "a guard that only ever skips is not a guard" lesson catching
+  itself — found by reading the log, which is the practice that lesson prescribes.
 - `cascade` raised NumPy's `operands could not be broadcast` instead of its own message when
   two networks were on different-length grids: `np.allclose` *raises* on mismatched shapes
   rather than returning `False`, so the length check has to come first. Found by the test
