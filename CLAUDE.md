@@ -113,6 +113,10 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
   - `mom.py` — M6, Tier 2: backend-neutral `WireModel`, the `MomBackend` protocol, the
     `pymininec` backend, and `to_nec_deck()` (an export, never a linked GPL solver).
     **Optional extra**; CI installs it so the validation runs rather than skipping.
+  - `measure.py` — M7: native Touchstone reading, reference-plane shifting, L-network
+    matching, cable loss, and `Comparison`. **`Comparison` must never gain a field that
+    merges prediction and measurement** — a test enforces it, and that test is the
+    structural form of honesty invariant 5.
   - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`, `feed`,
     `probe`, `sensitivity`, `sources`.
 - `tests/` — pure, offline, no hardware and no network, ever. Golden values carry their
@@ -198,7 +202,19 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M6 shipped — `v0.7.0` is released** (2026-08-09). Tier 2 exists, and it closed both
+**M7 shipped — `v0.8.0` is released** (2026-08-09). Measurement ingest, and the milestone
+where invariant 5 became structural rather than aspirational: `Comparison` keeps prediction
+and measurement in separate fields with nothing combining them, and a test asserts no such
+field exists.
+
+The reference plane is the thing to remember here: a VNA measures at its own port, and at
+VHF half a metre of coax rotates S11 most of the way round the Smith chart. Most
+"model disagrees with reality" reports are an un-de-embedded cable.
+
+**M8 (on-sky characterization — Y-factor Tsys, drift-scan beam maps, transit SEFD from
+jansky-observe bundles) is next**, and it is the last one before the UI.
+
+**M6 shipped — `v0.7.0` was released** (2026-08-09). Tier 2 exists, and it closed both
 tickets M5 wrote: the short-boom Yagi gap (4.47 analytic vs 6.49 MoM vs 6.75 published) and
 the JOVE mutual coupling (2.75 dB stacking rather than the ideal 3.01, with feed impedance
 shifting 17 ohms when the neighbour appears). The JOVE one is an **honest partial** — NASA's

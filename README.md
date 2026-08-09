@@ -111,6 +111,14 @@ The same standard as the sibling repos, applied to hardware:
 
 ## Status
 
+**M7 (`v0.8.0`) — measurement ingest.** Reads what a VNA says about the metal you built.
+Native Touchstone (`.s1p`) parsing, reference-plane de-embedding, L-network matching, and a
+comparison that **keeps prediction and measurement in separate fields with nothing combining
+them** — a test asserts no merged field exists, which is honesty invariant 5 made structural.
+
+It diagnoses rather than just reporting: reactance off while resistance agrees is a length
+error or a stray cable; "resonant 2% low" becomes "shorten it by 2%".
+
 **M6 (`v0.7.0`) — Tier-2 validation.** The button that says *check that*. A `pymininec`
 backend solves the same antenna numerically, and it closed both disagreements M5 shipped: the
 short-boom Yagi (Tier 1 read 4.47 dBi, Tier 2 gives 6.49, published 6.75) and the JOVE array's
