@@ -459,8 +459,13 @@ def test_a_filter_in_front_of_an_unstable_amplifier_does_not_hide_it():
         )
         s = filtered.s[0]
         assert abs(s[1, 0]) < 1  # looks like a lossy passive part by |S21| alone
-        assert st.rollett_k(s) == pytest.approx(st.rollett_k(HFET_102), rel=1e-9)
-        assert st.mu_load(s) == pytest.approx(st.mu_load(HFET_102), rel=1e-9)
+        # rel=1e-6, not machine epsilon: the cascade runs through ABCD, and with |S21| down
+        # at 0.004 the intermediate matrix is close enough to singular that the last few
+        # digits are BLAS-dependent (this drifted ~2e-9 on macOS and Windows while passing
+        # on Linux at 1e-9). The claim being made is that K is *unchanged* — 0.6071 either
+        # way — and 1e-6 settles that with six orders of margin.
+        assert st.rollett_k(s) == pytest.approx(st.rollett_k(HFET_102), rel=1e-6)
+        assert st.mu_load(s) == pytest.approx(st.mu_load(HFET_102), rel=1e-6)
         assert not st.is_passive(s)
         assert st.stability_notes(filtered)  # the warning survives the filter
 
