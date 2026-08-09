@@ -198,9 +198,13 @@ and "how big a dish do I need" solved backwards. Anchors: BHARAT's published K/J
 the standard 3.41 K cold sky, and a **real** cross-check against the sibling course's
 radiometer equation (CI checks `jansky` out rather than letting the test skip).
 
-Deliberately NOT shipped: a catalogue of named calibrator fluxes. Cas A and friends are
-epoch-dependent and shipping unverified numbers would break the catalog's provenance rules,
-so `--flux-jy`/`--brightness-k` take a value you can source.
+**`v0.5.1`** then landed the catalogue once verified (Perley & Butler 2017 cross-checked
+against Trotter 2017). Verification found three errors, one already released: the zenith
+atmosphere term was 2.5 K and is 2.0 K; Cas A is 1768 Jy at **epoch 2016**, not the
+~1900-2000 Jy often repeated; and Tau A is 829 Jy fading at 0.10 %/yr, not 875 at 0.15 %/yr.
+Two lessons stuck: **a flux without an epoch is a half-truth** (Cas A fades, non-uniformly),
+and **catalogued HI brightness is a 16-36 arcmin survey peak while an amateur beam reads a
+degrees-wide average** — lower wherever emission is structured.
 
 **M5 (wire antennas & arrays) is next** — and it unlocks the Radio JOVE dual-dipole and
 meteor-scatter yagi catalog entries that have been held back since M0.
