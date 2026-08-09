@@ -26,6 +26,7 @@ from enum import StrEnum
 from jansky_forge.apertures import ConicalHorn, ParabolicDish, PyramidalHorn
 from jansky_forge.bands import BANDS, Band, get_band
 from jansky_forge.core import AntennaModel, Characterization
+from jansky_forge.wires import AVERAGE_GROUND, DipoleOverGround, YagiUda
 
 
 class Provenance(StrEnum):
@@ -149,9 +150,9 @@ def _b(slug: str) -> Band:
 # --------------------------------------------------------------------------------------
 # Dishes
 #
-# Wire-antenna builds (the Radio JOVE dual dipole, meteor-scatter yagis) are deliberately
-# absent until M5 gives them a model that can characterize them. A template the tool
-# cannot evaluate would be decoration; one with invented numbers would be worse.
+# The wire-antenna builds below waited from M0 to M5 for a model that could actually
+# evaluate them. A template the tool cannot characterize would be decoration; one with
+# invented numbers would be worse.
 # --------------------------------------------------------------------------------------
 
 register(
@@ -474,6 +475,123 @@ register(
             "against in this package's own notation table.",
             "The quoted throat (177.0 x 82.9 mm) is close to but not equal to standard WR-650 "
             "(165.1 x 82.55 mm) — check what waveguide you actually have before cutting.",
+        ),
+    )
+)
+
+
+# --------------------------------------------------------------------------------------
+# Wire antennas
+#
+# Held back from M0 until M5 could characterize them. Their geometry was verified long
+# before the model existed; it simply waited.
+# --------------------------------------------------------------------------------------
+
+register(
+    Template(
+        slug="radio-jove",
+        name="NASA Radio JOVE dual-dipole array (20.1 MHz)",
+        model=DipoleOverGround(
+            freq_hz=20.1e6,
+            height_m=10 * 0.3048,
+            ground=AVERAGE_GROUND,
+            n_elements=2,
+            spacing_m=20 * 0.3048,
+        ),
+        design_band=_b("jove"),
+        summary=(
+            "Two wire dipoles strung between poles in a back garden — NASA's education "
+            "programme antenna, and the standard way an amateur hears Jupiter's decametric "
+            "storms and solar bursts."
+        ),
+        provenance=Provenance.PUBLISHED,
+        source_url="https://radiojove.gsfc.nasa.gov/radio_telescope/manuals/RJ_Antenna_Manual_v2.1_2025_02_07.pdf",
+        published={"single_dipole_gain_dbi": 5.8, "dual_dipole_gain_dbi": 7.8},
+        caveats=(
+            "Our single-dipole prediction over average ground at this 10 ft height is "
+            "5.89 dBi against the manual's 5.8 — agreement to 0.09 dB, which is what "
+            "identifies the manual's figure as an average-ground number rather than the "
+            "8.17 dBi a perfect conductor would give.",
+            "The DUAL-dipole figure does NOT agree as well: we predict 8.90 dBi against the "
+            "manual's 7.8. The gap is our ideal-array assumption — two real dipoles couple "
+            "to each other and fall about 1 dB short of the textbook 3 dB stacking gain. "
+            "Left in place rather than tuned away; modelling it properly needs the "
+            "method-of-moments tier (M6).",
+            "Element length: we compute 23.24 ft tip to tip from a 0.95 velocity factor "
+            "against the manual's specified 23.28 ft — 1 cm apart, which validates the "
+            "velocity factor rather than merely agreeing with it.",
+            "HEIGHT IS A CONTROL, NOT A DETAIL. The manual offers 10/15/20 ft and treats "
+            "height as one of its two beam-steering mechanisms; our model reproduces that, "
+            "moving the lobe from the zenith at 10 ft to 35 deg elevation at 20 ft. Pick the "
+            "height for the elevation you want to observe.",
+            "The 20 ft dipole-to-dipole spacing comes only from the manual's dimensioned "
+            "site-layout figure; the prose never states it.",
+            "Published beamwidth is inconsistent between manual revisions: the 2025 v2.1 "
+            "manual says about 70 deg for the unphased dual dipole, while the 2022 v2.0 and "
+            "2012 editions say about 60 deg for the identical configuration. Unexplained.",
+            "Phasing the two elements with unequal feedline lengths steers the beam east or "
+            "west; that is the second steering mechanism and is not modelled here.",
+        ),
+    )
+)
+
+register(
+    Template(
+        slug="graves-yagi-7el",
+        name="W7ZOI 7-element Yagi for GRAVES meteor scatter (143.05 MHz)",
+        model=YagiUda(freq_hz=143.05e6, boom_length_m=2.377, n_elements=7),
+        design_band=_b("graves"),
+        summary=(
+            "A 2.4 m boom aimed at the French GRAVES space-surveillance radar, so meteor "
+            "trails reflect its carrier into your receiver — the standard European amateur "
+            "meteor-detection antenna."
+        ),
+        provenance=Provenance.COMMUNITY,
+        source_url="https://britastro.org/wp-content/uploads/2019/11/Antennas_for_meteor_radar.pdf",
+        published={"gain_dbi": 11.6, "beamwidth_deg": 49.0},
+        caveats=(
+            "Our boom-length estimate gives 11.24 dBi against the published 11.6 dBi "
+            "modelled figure — 0.36 dB, which is about as well as a boom-length bound can "
+            "be expected to do.",
+            "THE SOURCE CONTRADICTS ITSELF: the same document quotes this design as 11.6 dBi "
+            "with a 49 deg measured beamwidth in one place and '11 dBi / 50 deg' in another. "
+            "The two are close enough not to matter here, but it is recorded rather than "
+            "silently reconciled.",
+            "Full element geometry IS published (reflector 1028 mm at 0, folded driven "
+            "element 960 mm at 248, then directors 930/926/906/884/834 mm at "
+            "565/945/1331/1802/2377 mm) but is NOT used: this package models Yagis by boom "
+            "length only, because element-level design is what the method-of-moments tier "
+            "(M6) is for. Those dimensions are the natural first thing to feed it.",
+            "Mount it vertically for GRAVES, and aim at the elevation where meteor trails "
+            "form (roughly 100 km up over the radar's coverage), not at the horizon.",
+        ),
+    )
+)
+
+register(
+    Template(
+        slug="graves-yagi-3el",
+        name="G4CQM 3-element Yagi for GRAVES meteor scatter (143.05 MHz)",
+        model=YagiUda(freq_hz=143.05e6, boom_length_m=0.500, n_elements=3),
+        design_band=_b("graves"),
+        summary=(
+            "A half-metre boom for the same job as the 7-element, when the garden or the "
+            "budget will not take a 2.4 m one."
+        ),
+        provenance=Provenance.COMMUNITY,
+        source_url="https://britastro.org/wp-content/uploads/2019/11/Antennas_for_meteor_radar.pdf",
+        published={"gain_dbi": 6.75, "beamwidth_deg": 70.0},
+        caveats=(
+            "OUR ESTIMATE IS 2.3 dB LOW: 4.47 dBi against the published 6.75 dBi (4.6 dBd). "
+            "That is not a surprise and not a bug — the Hansen-Woodyard endfire bound behind "
+            "the estimate assumes a long array, and this boom is 0.24 wavelengths. The model "
+            "warns about exactly this case, and the disagreement is left standing as a "
+            "demonstration of the estimate's stated limit.",
+            "The same document also quotes this design as '7 dBi / 70 deg' elsewhere, "
+            "against the 4.6 dBd (6.75 dBi) of its design table. Recorded, not reconciled.",
+            "Element geometry is published (reflector 1076 mm at 0, driven 973 mm at 265, "
+            "director 836 mm at 500) and, as for the 7-element, is not used by the "
+            "boom-length model. Feed it to M6.",
         ),
     )
 )

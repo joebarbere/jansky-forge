@@ -2,8 +2,8 @@
 
 Three legs, one package:
 
-**Create** — closed-form models (:mod:`jansky_forge.apertures` and, from M5, the wire
-families) that recompute in microseconds, so exploring a design is interactive by
+**Create** — closed-form models (:mod:`jansky_forge.apertures` for dishes and horns,
+:mod:`jansky_forge.wires` for dipoles, arrays and the ground beneath them) that recompute in microseconds, so exploring a design is interactive by
 construction rather than by optimization. From M1, :mod:`jansky_forge.horns` also runs the
 other way: give it a target gain and it synthesizes a buildable horn.
 
@@ -49,6 +49,14 @@ from jansky_forge.sensitivity import (
     time_to_detect_s,
 )
 from jansky_forge.units import wavelength_m
+from jansky_forge.wires import (
+    AVERAGE_GROUND,
+    DipoleOverGround,
+    GroundType,
+    HalfWaveDipole,
+    YagiUda,
+    ground_gain_db,
+)
 
 __all__ = [
     "BANDS",
@@ -56,7 +64,11 @@ __all__ = [
     "Band",
     "Characterization",
     "Development",
+    "DipoleOverGround",
+    "GroundType",
+    "HalfWaveDipole",
     "ConicalDesign",
+    "AVERAGE_GROUND",
     "ConicalHorn",
     "CosQFeed",
     "ParabolicDish",
@@ -64,6 +76,7 @@ __all__ = [
     "HornFeed",
     "Packet",
     "PyramidalHorn",
+    "YagiUda",
     "__version__",
     "best_f_over_d",
     "design_conical_horn",
@@ -76,6 +89,7 @@ __all__ = [
     "system_temperature",
     "time_to_detect_s",
     "get_band",
+    "ground_gain_db",
     "realizability",
     "wavelength_m",
     "write_packet",

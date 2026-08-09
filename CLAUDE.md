@@ -107,8 +107,11 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
   - `sensitivity.py` — M4: system temperature as a budget (sky + spillover + Friis
     cascade), SEFD, G/T, the radiometer equation, time-to-detect, and `detect()`, which
     **routes point vs extended sources to different formulas**. See the invariant below.
+  - `wires.py` — M5: dipoles, folded dipoles, the exact array factor, Fresnel ground
+    reflection, and dipole-over-ground. **Yagis are boom-length only by design** — element
+    modelling belongs to M6's MoM tier, and the docstring, the notes and a test all say so.
   - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`, `feed`,
-    `probe`, `sensitivity`.
+    `probe`, `sensitivity`, `sources`.
 - `tests/` — pure, offline, no hardware and no network, ever. Golden values carry their
   arithmetic in a comment so a reader can check rather than trust.
 - `plans/jansky_forge.md` — the full plan: survey, tiers, all fifteen milestones, testing
@@ -192,7 +195,24 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M4 shipped — `v0.5.0` is released** (2026-08-09). Antenna numbers became telescope
+**M5 shipped — `v0.6.0` is released** (2026-08-09). Wire antennas, and with them the
+`radio-jove` and two `graves-yagi-*` catalogue entries that waited from M0 for a model that
+could evaluate them. Anchors: NASA's published 5.8 dBi single-dipole gain (we get 5.89 over
+average ground) and their 23.28 ft element length (we get 23.24).
+
+Two disagreements kept rather than tuned: the JOVE dual dipole overshoots by ~1 dB (mutual
+coupling, which pattern multiplication cannot represent) and the 3-element Yagi estimate runs
+2.3 dB low (the endfire bound assumes a long array, and the model warns about exactly that).
+Both are M6 entry tickets.
+
+M5 shipped **less than its plan row promised, on purpose**: no helical, log-periodic or Moxon
+models, and Yagis by boom length only.
+
+**M6 (Tier-2 MoM validation, pymininec backend) is next** — and it has a ready-made first
+job, since both GRAVES entries carry full published element geometry in their caveats,
+waiting for a solver that can consume it.
+
+**M4 shipped — `v0.5.0` was released** (2026-08-09). Antenna numbers became telescope
 numbers: Tsys as an actionable budget, SEFD, G/T, the radiometer equation, time-to-detect,
 and "how big a dish do I need" solved backwards. Anchors: BHARAT's published K/Jy to 0.3%,
 the standard 3.41 K cold sky, and a **real** cross-check against the sibling course's

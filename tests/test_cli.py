@@ -32,8 +32,20 @@ def test_list_shows_the_catalog_and_filters(capsys):
 
 
 def test_list_says_so_when_nothing_matches(capsys):
-    assert cli.main(["list", "--kind", "yagi"]) == 0  # wire antennas arrive at M5
+    # "yagi" used to match nothing; M5 added two, so this now needs a genuinely absent
+    # family. Helical, log-periodic and Moxon antennas remain unmodelled.
+    assert cli.main(["list", "--kind", "helical"]) == 0
     assert "No templates match" in capsys.readouterr().out
+
+
+def test_list_finds_the_wire_antennas_m5_unlocked(capsys):
+    """These waited from M0 to M5 for a model that could evaluate them."""
+    assert cli.main(["list", "--kind", "yagi"]) == 0
+    out = capsys.readouterr().out
+    assert "graves-yagi-7el" in out and "graves-yagi-3el" in out
+
+    assert cli.main(["list", "--band", "jove"]) == 0
+    assert "radio-jove" in capsys.readouterr().out
 
 
 def test_show_prints_geometry_provenance_and_the_model_notes(capsys):

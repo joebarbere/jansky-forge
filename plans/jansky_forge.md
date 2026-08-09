@@ -90,7 +90,7 @@ src/jansky_forge/
 ├── fabricate/      geometry, svg (tiled 1:1), dxf, cutlist, packet   [M2] ✅
 ├── feeds.py        feed↔dish matching, taper, spillover, probe      [M3] ✅
 ├── sensitivity/    G/T, SEFD, Tsys, radiometer                      [M4]
-├── wires/          dipole, yagi, helix, LPDA, arrays                [M5]
+├── wires.py        dipole, folded, ground reflection, arrays, yagi    [M5] ✅
 ├── mom/            Tier-2 backends behind one protocol              [M6]
 ├── measure/        VNA/Touchstone, measured-vs-predicted            [M7]
 ├── onsky/          Y-factor, drift-scan beam maps, transit SEFD     [M8]
@@ -130,7 +130,7 @@ workflow exist from M0 so that is true from the first tag. Version lives in
 | `v0.3.0` | **M2 — Fabrication** ✅ shipped 2026-08-08 | The artifacts that turn a design into metal: printable fold-up templates (SVG/PDF, tiled to A4/Letter), DXF export, cut lists with kerf allowance, a bill of materials, and assembly notes. The "build" leg of the name |
 | `v0.4.0` | **M3 — Dish & feed system** ✅ shipped 2026-08-08 | f/D ↔ subtended angle ↔ edge taper ↔ illumination/spillover as a solved system rather than assumed constants; feed selection and matching (which horn belongs on which dish); offset geometry; strut blockage; mesh transparency; focal-point placement |
 | `v0.5.0` | **M4 — Sensitivity: telescope figures of merit** ✅ shipped 2026-08-09 | G/T, SEFD, Tsys budget (feed + LNA + cable + spillover + sky), the radiometer equation, time-to-detect for a named source, and "how big a dish do I need to see X?" solved backwards. Optional `jansky` dependency lands here for the course's radiometer helpers |
-| `v0.6.0` | **M5 — Wire antennas & arrays** | Dipole, folded dipole, ground-plane, Yagi-Uda, Moxon, helical, log-periodic, plus simple arrays and ground-reflection gain. Unlocks the **Radio JOVE dual-dipole and meteor-scatter yagi catalog entries** held back from M0 |
+| `v0.6.0` | **M5 — Wire antennas & arrays** ✅ shipped 2026-08-09 | Dipole, folded dipole, ground-plane, Yagi-Uda, Moxon, helical, log-periodic, plus simple arrays and ground-reflection gain. Unlocks the **Radio JOVE dual-dipole and meteor-scatter yagi catalog entries** held back from M0 |
 | `v0.7.0` | **M6 — Tier-2 MoM validation** | The `MomBackend` protocol + pymininec backend; analytic-vs-MoM pattern overlay; optional subprocess NEC2; an Arcanum-shaped seam. The button that says "check my closed-form answer against real numerics" |
 | `v0.8.0` | **M7 — Measurement ingest** | scikit-rf dependency; NanoVNA/LiteVNA Touchstone import; measured SWR/impedance/S11 versus predicted, on one plot with separate provenance; match networks; cable-loss budgets |
 | `v0.9.0` | **M8 — On-sky characterization** | The loop closes: Y-factor Tsys, drift-scan beam maps, aperture efficiency and SEFD from a Sun or Cas A transit — computed from **jansky-observe observation bundles**, so a real antenna's measured beam lands beside the model's predicted beam |
@@ -171,6 +171,18 @@ gives a usable path via a cos^2q model fitted to the rule-of-thumb beamwidth, wi
 stacked approximation stated. Doing it properly needs the circular-aperture TE11 far field;
 it is now a candidate for whichever milestone first has a reason to care about conical
 sidelobes rather than just conical beamwidth.
+
+### M5 postscript (2026-08-09)
+
+M5 shipped **less** than its plan row promised, on purpose. Dipoles, folded dipoles, ground
+reflection and arrays are there and validated against NASA's published figures. Yagis are
+modelled by boom length only — element design is what M6's method-of-moments tier exists
+for, and a plausible-looking analytic element model would have been worse than none.
+Helical, log-periodic and Moxon antennas are absent entirely rather than approximated.
+
+The M6 entry ticket is already written: both GRAVES catalogue entries carry their full
+published element geometry in their caveats, unused, waiting for a solver that can consume
+it. So is the JOVE dual-dipole's 1 dB mutual-coupling shortfall.
 
 ## 6. Testing strategy
 

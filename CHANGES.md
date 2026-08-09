@@ -5,6 +5,64 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.6.0] — M5, Wire antennas & arrays
+
+Apertures were the easy half. Wire antennas are where the amateur bands live — Radio JOVE at
+20 MHz, meteor scatter at 143 MHz — and where the dominant effect is one an aperture model
+never has to consider: **the ground**.
+
+### The catalogue entries that waited five milestones
+`radio-jove`, `graves-yagi-7el`, and `graves-yagi-3el` were held back from M0 because the
+tool could not evaluate them. Their geometry was verified long ago; it simply waited for a
+model. A template the tool cannot characterize is decoration, and one with invented numbers
+is worse.
+
+### Added
+- **`jansky_forge.wires`**: half-wave and folded dipoles, the exact array factor, Fresnel
+  ground reflection over four soil types, and dipole-over-ground with height as a first-class
+  design variable.
+- **Height as a beam-steering control, not a mounting detail.** A horizontal dipole works
+  with its own inverted image in the earth: low, and the lobe is overhead; raise it, and the
+  lobe drops toward the horizon. Radio JOVE's manual treats height as one of its two
+  steering mechanisms, and the model reproduces that — zenith at 10 ft, 35 degrees elevation
+  at 20 ft.
+- Soil quality as a real number: at 20 MHz a dipole gains 6.0 dB over seawater and 2.7 dB
+  over dry sand, which is most of the difference between hearing Jupiter and not.
+
+### Verified against
+- **NASA's published 5.8 dBi** for a single JOVE dipole. Over *average* ground at their 10 ft
+  height we compute **5.89 dBi**. That agreement is what identifies the manual's figure as an
+  average-ground number: perfect ground would give 8.17 dBi, so the 2.4 dB difference is real
+  soil loss rather than a modelling error.
+- **NASA's published 23.28 ft** element length: we compute 23.24 ft from a 0.95 velocity
+  factor — 1 cm apart, which validates the factor rather than merely agreeing with it.
+- **The half-wave dipole's 2.15 dBi**, obtained by integrating its own pattern rather than
+  asserting the constant.
+- **A published 7-element Yagi** at 143 MHz: 11.24 dBi estimated against 11.6 dBi modelled.
+
+### Two disagreements kept rather than tuned away
+- **The JOVE dual dipole overshoots.** We predict 8.90 dBi against NASA's published 7.8. The
+  gap is our ideal-array assumption: two real dipoles couple to each other and fall about
+  1 dB short of textbook stacking gain. Pattern multiplication cannot represent that, and
+  fudging the array factor to match would destroy the model's independence. M6's
+  method-of-moments tier is the right place to fix it.
+- **The 3-element Yagi estimate is 2.3 dB low** (4.47 against a published 6.75). The
+  Hansen-Woodyard endfire bound behind it assumes a *long* array, and this boom is 0.24
+  wavelengths. The model warns about exactly this case, and the test asserts the shortfall —
+  a model that quietly returned a plausible number here would be worse than one visibly
+  wrong for a stated reason.
+
+### Deliberately thin, and deliberately said so
+Yagis are modelled **by boom length only**. Element lengths and spacings are precisely what a
+method-of-moments solver is for, and that is Tier 2 (M6) — so `yagi_gain_estimate` is for
+sizing a mast, not for cutting elements, and says so in its docstring, its notes, and a test.
+Both GRAVES catalogue entries carry their full published element geometry in their caveats,
+ready to feed M6.
+
+Helical, log-periodic, and Moxon antennas are **not** modelled. The plan listed them; they
+are not here, and pretending otherwise would be worse than the gap.
+
+
 ## [0.5.1] — verified source catalogue, and three corrections
 
 M4 shipped without a source catalogue because the fluxes were not yet verified. They now
