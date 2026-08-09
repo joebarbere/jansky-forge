@@ -44,7 +44,7 @@ jobs:
       - name: Optional extras — MoM, measurement cross-checks, and the UI
         if: matrix.os == 'ubuntu-latest'
         run: |
-          uv pip install 'pymininec>=1.2' 'scikit-rf>=1.0' 'fastapi>=0.115'
+          uv pip install 'pymininec>=1.2' 'scikit-rf>=1.0' 'fastapi>=0.115' httpx2
           uv run --no-sync pytest tests/test_mom.py tests/test_measure.py tests/test_server.py -v
       - name: Checkout the jansky course (for the radiometer cross-check)
         if: matrix.os == 'ubuntu-latest'

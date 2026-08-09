@@ -14,7 +14,13 @@ import pytest
 
 pytest.importorskip("fastapi", reason="the UI is an optional extra")
 
-from fastapi.testclient import TestClient  # noqa: E402
+# Starlette's test client needs an HTTP client library and raises RuntimeError — not
+# ImportError — when it is absent, so importorskip cannot guard it. Catch broadly and skip
+# the module, otherwise a machine with fastapi but no httpx errors at collection time.
+try:
+    from fastapi.testclient import TestClient  # noqa: E402
+except Exception as exc:  # pragma: no cover - environment-dependent
+    pytest.skip(f"fastapi's test client is unusable here: {exc}", allow_module_level=True)
 
 from jansky_forge import catalog  # noqa: E402
 from jansky_forge.server import create_app, plots  # noqa: E402
