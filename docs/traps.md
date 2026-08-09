@@ -156,6 +156,48 @@ two-port files only. Reading a `.s2p` the obvious way transposes the device:
 Smoke alarm: `TwoPort.is_reciprocal`. An amplifier that reads reciprocal has almost certainly
 been read wrong.
 
+### A quoted minimum is not a band figure
+
+Papers and datasheets quote their best number. The famous cryogenic "2.2 K" is a **minimum at
+6 GHz**; the same amplifier averages 3.5 K over 0.3–14 GHz, and neither figure is a statement
+about 1.4 GHz. Compare like with like, and say which one you are holding.
+
+### A ceiling is not an option
+
+"A perfect 0 K amplifier would save 66 K" and "better cable would save 43 K" are not
+comparable statements, and putting them in one ranked list lets the impossible one win. One
+is a physical bound; the other is an afternoon's work.
+
+Compare **achievable against achievable**. `would_a_better_lna_help` prices the best part you
+could actually order alongside the ceiling, and labels the ceiling *"impossible, not a
+target"*.
+
+### A datasheet noise figure is quoted at *a* frequency, not at yours
+
+The QPL9547's famous 0.3 dB is a **1.9 GHz** number. Noise figure varies across a band, and
+this project will not interpolate a headline figure to your frequency — it flags the mismatch
+instead. Read the datasheet curve.
+
+Related: a bare MMIC's figure assumes the manufacturer's evaluation board. Your layout,
+connectors and bias network are not that board.
+
+### For hydrogen-line spectroscopy, the clock is almost never your problem
+
+A 1 ppm TCXO puts a 21 cm line **300 m/s** wrong. Galactic HI linewidths are tens of km/s.
+A GPSDO bought to fix a spectroscopy problem is a GPSDO bought to fix the wrong problem.
+
+**Accuracy and stability answer different questions.** A systematic offset moves your line
+(accuracy); drift over the integration destroys coherence (stability). Total-power
+spectroscopy adds powers, not phases, so it does not care about the second one. Pulsar
+folding and VLBI care about nothing else.
+
+### The SDR's noise figure stops mattering above ~29 dB of front-end gain
+
+Friis divides the backend's contribution by everything ahead of it. Behind a 40 dB LNA, a
+6 dB SDR and a 3 dB SDR differ by well under a kelvin. What separates digitizers is **dynamic
+range** — a 12-bit radio has 24 dB more than an 8-bit one, and in a suburban RFI environment
+that is the difference between data and intermodulation.
+
 ### `|S21| > 1` is not the test for "is this thing active"
 
 A **lossless filter in front of an unstable amplifier** leaves K, μ and the unstable loads

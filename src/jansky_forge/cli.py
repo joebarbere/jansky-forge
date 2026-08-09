@@ -513,6 +513,91 @@ def _print_stability(network, freq_hz: float) -> None:  # noqa: ANN001 - TwoPort
         print(f"    - {note}")
 
 
+def _print_parts(args: argparse.Namespace) -> None:
+    """The parts catalogue (N4) — amplifiers, digitizers and clocks, with their tiers."""
+    from jansky_forge import receivers as rx
+
+    kind = args.kind
+    if kind in ("all", "amplifier"):
+        print("AMPLIFIERS (quietest first)")
+        for amplifier in rx.amplifiers(availability=args.availability):
+            print(f"  {amplifier.slug:<20} {amplifier.summary()}")
+            print(f"  {'':<20} {amplifier.technology}  <{amplifier.source_url}>")
+    if kind in ("all", "digitizer"):
+        print("\nDIGITIZERS (most bits first — the axis that actually separates them)")
+        for digitizer in rx.digitizers():
+            print(f"  {digitizer.slug:<20} {digitizer.summary()}")
+    if kind in ("all", "clock"):
+        print("\nCLOCKS (best short-term stability first)")
+        for clock in rx.clocks():
+            print(f"  {clock.slug:<20} {clock.summary()}")
+    print(
+        "\n  Every figure is a manufacturer or literature CLAIM, not a measurement. "
+        "Use 'show' for the caveats."
+    )
+
+
+def _print_receiver_choice(args: argparse.Namespace) -> None:
+    """Compare amplifiers against a real antenna, and say what is worth fixing (N4)."""
+    from jansky_forge import receivers as rx
+
+    freq_hz = args.freq_mhz * 1e6 if args.freq_mhz else get_band(args.band).freq_hz
+
+    if args.template:
+        template = catalog.get(args.template)
+        char = template.characterize(freq_hz)
+        label = template.name
+        f_over_d = getattr(template.model, "f_over_d", None)
+    else:
+        dish = ParabolicDish(diameter_m=args.diameter_m, f_over_d=args.f_over_d)
+        char = dish.characterize(freq_hz)
+        label = f"{args.diameter_m:g} m dish"
+        f_over_d = args.f_over_d
+
+    spillover = 1.0
+    if f_over_d is not None:
+        spillover = feeds.best_feed_for_dish(f_over_d=f_over_d).spillover_efficiency
+
+    print(
+        f"{label} at {freq_hz / 1e6:.3f} MHz — {char.gain_dbi:.1f} dBi, "
+        f"A_e {char.effective_area_m2:.3f} m²"
+    )
+    print(f"  spillover efficiency {spillover:.3f}")
+    print(f"  {args.pre_lna_loss_db:g} dB ahead of the amplifier\n")
+
+    candidates = rx.amplifiers(covering_hz=freq_hz)
+    if args.availability:
+        candidates = [a for a in candidates if a.availability == args.availability]
+    if not candidates:
+        print("  No catalogued amplifier covers that frequency at that tier.")
+        return
+
+    print("  CANDIDATES")
+    for candidate in rx.compare_amplifiers(
+        candidates,
+        freq_hz=freq_hz,
+        gain_dbi=char.gain_dbi,
+        effective_area_m2=char.effective_area_m2,
+        spillover_efficiency=spillover,
+        pre_lna_loss_db=args.pre_lna_loss_db,
+    ):
+        print(f"    {candidate.summary()}")
+        for note in candidate.notes:
+            print(f"        - {note}")
+
+    chosen = rx.get_amplifier(args.have) if args.have else candidates[-1]
+    advice = rx.would_a_better_lna_help(
+        freq_hz=freq_hz,
+        amplifier=chosen,
+        spillover_efficiency=spillover,
+        pre_lna_loss_db=args.pre_lna_loss_db,
+    )
+    print(f"\n  IF YOU HAVE THE {chosen.name.upper()}")
+    print(f"    {advice.summary()}")
+    for note in advice.notes:
+        print(f"      - {note}")
+
+
 def _print_network(args: argparse.Namespace) -> None:
     """Read a vendor's ``.s2p`` and say what it is (N0)."""
     from jansky_forge import twoport
@@ -698,6 +783,40 @@ def build_parser() -> argparse.ArgumentParser:
         "--freq-mhz", type=float, help="Frequency to report at (default: middle of the sweep)"
     )
 
+    p_parts = sub.add_parser(
+        "parts", help="The receiver parts catalogue (N4): amplifiers, digitizers, clocks"
+    )
+    p_parts.add_argument(
+        "--kind", default="all", choices=("all", "amplifier", "digitizer", "clock")
+    )
+    p_parts.add_argument(
+        "--availability",
+        choices=("amateur", "professional", "research", "historical"),
+        help="Filter by whether you can actually get one",
+    )
+
+    p_choose = sub.add_parser(
+        "choose-receiver",
+        help="Compare amplifiers against your antenna and say what is worth fixing (N4)",
+    )
+    p_choose.add_argument("--template", help="Catalog slug for the antenna (see 'list')")
+    p_choose.add_argument("--diameter-m", type=float, help="Dish diameter, instead of --template")
+    p_choose.add_argument("--f-over-d", type=float, default=0.4, help="Dish focal ratio")
+    p_choose.add_argument("--band", default="hi", help="Band slug (default: hi)")
+    p_choose.add_argument("--freq-mhz", type=float, help="Frequency, overrides --band")
+    p_choose.add_argument(
+        "--pre-lna-loss-db",
+        type=float,
+        default=0.2,
+        help="Loss ahead of the amplifier — the argument people leave at zero",
+    )
+    p_choose.add_argument("--have", help="Amplifier slug you already own (see 'parts')")
+    p_choose.add_argument(
+        "--availability",
+        choices=("amateur", "professional", "research", "historical"),
+        help="Restrict candidates to a tier",
+    )
+
     sub.add_parser("sources", help="List the catalogued radio sources, with provenance")
 
     p_serve = sub.add_parser("serve", help="Run the interactive web UI (M9, needs the ui extra)")
@@ -756,6 +875,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             ) from exc
         print(f"jansky-forge UI on http://{args.host}:{args.port}")
         uvicorn.run(create_app(), host=args.host, port=args.port, log_level="warning")
+        return 0
+
+    if args.command == "parts":
+        _print_parts(args)
+        return 0
+
+    if args.command == "choose-receiver":
+        if not args.template and not args.diameter_m:
+            raise SystemExit("choose-receiver needs --template or --diameter-m")
+        _print_receiver_choice(args)
         return 0
 
     if args.command == "network":

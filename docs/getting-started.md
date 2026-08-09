@@ -76,6 +76,8 @@ jansky-forge <command> --help      # every command has real help
 | `show <slug> [--freq-mhz N] [--json]` | One template: geometry, provenance, caveats, predicted performance |
 | `characterize <slug> [--band X] [--freq-mhz N]` | One template across several frequencies |
 | `sources` | Catalogued radio sources with provenance and epochs |
+| `parts [--kind …] [--availability …]` | Amplifiers, digitizers and clocks, hobby to state of the art |
+| `choose-receiver --template <slug>` | Rank amplifiers on **your** antenna, and say what is worth fixing |
 | `network <file.s2p>` | Read a vendor's two-port data: S-parameters, all three gains, noise block |
 
 ### Designing
@@ -234,6 +236,29 @@ is not Tsys; feed it to
 `system_temperature()` with the sky and your spillover efficiency to get that. Confusing the
 two flatters the answer, because the terms you left out are the warm ones.
 
+### Which amplifier should I buy?
+
+```python
+from jansky_forge import receivers as rx
+
+for amplifier in rx.amplifiers(availability="amateur"):
+    print(amplifier.summary())
+
+advice = rx.would_a_better_lna_help(
+    freq_hz=1_420_405_751.768,
+    amplifier=rx.get_amplifier("sawbird-h1"),
+    spillover_efficiency=0.926,
+    pre_lna_loss_db=0.5,
+)
+print(advice.summary())
+for note in advice.notes:
+    print(" -", note)
+```
+
+Read it in this order: the **ceiling** (what a physically impossible 0 K receiver would give
+— not a target), then the **achievable** upgrade, then the verdict, which ranks only things
+you can actually do. Very often the answer is "replace the cable, not the amplifier".
+
 ### Will this amplifier oscillate?
 
 ```python
@@ -285,6 +310,7 @@ print(advice)
 | `measure` | Touchstone (1-port), reference plane, matching, comparison |
 | `twoport` | Two-port networks: `.s2p`, S↔Z↔Y↔ABCD, the three gains, cascade |
 | `stability` | K, Δ, μ, stability circles, MSG/MAG — runs automatically on any amplifier |
+| `receivers` | Parts catalogue with provenance, and "which should I buy?" against your antenna |
 | `onsky` | Y-factor, drift scans, transit, bundle ingest |
 | `server/` | The web UI |
 

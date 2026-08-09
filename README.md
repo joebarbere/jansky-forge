@@ -125,6 +125,18 @@ Also: [rules of thumb](docs/rules-of-thumb.md) (numbers with their validity cond
 
 ## Status
 
+**N4 (`v0.13.0`) — receiver selection.** A parts catalogue with enforced provenance —
+amplifiers, digitizers, clocks — spanning hobby modules to a 3.5 K cryogenic InP HEMT, and
+comparison against **your** antenna rather than in the abstract.
+
+The unbuyable entries are there on purpose. Knowing the floor is 2 K, and that the sky at
+21 cm is already ~5 K, tells you how much of your system temperature is yours to fix. So does
+the historical axis: NRAO managed 25 K at 4.5 GHz in **1980**, better than a hobbyist's
+room-temperature module today.
+
+`choose-receiver` prices the ceiling *and* the achievable upgrade, because ranking a perfect
+0 K amplifier against "use better cable" would let the impossible option win every time.
+
 **N1 (`v0.12.0`) — stability.** Will it oscillate? Rollett's K and Δ, the μ factor, and
 source/load stability circles that say **which terminations to avoid** rather than just that
 a problem exists. The check runs automatically on any active device the tool reads — an

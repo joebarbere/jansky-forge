@@ -75,6 +75,29 @@ one, and each collapse is a bug that cannot be seen.
 
 ---
 
+## A search summary is not a source
+
+N4's cryogenic entry was first written from a web-search summary: 2.2 K, cited to
+arXiv:1310.3088. Both halves were wrong. That paper is a **27–33 GHz** amplifier at 9.4 K,
+and the 2.2 K figure belongs to a different design where it is the **minimum, measured at
+6 GHz** — five times away from the frequency the catalogue compares at.
+
+The entry was internally consistent, carried a real URL, passed the provenance audit, and was
+wrong. Nothing in the test suite could have caught it, because the tests check arithmetic and
+this was a question about what a document says.
+
+- **Open the source.** A search engine's summary is a claim about a document, not the
+  document. The audit can check that a URL exists; only you can check that it says what you
+  wrote down.
+- **Prefer the band figure to the headline figure.** Vendors and papers quote minima, and a
+  minimum at 6 GHz tells you nothing at 1.4 GHz. Where a source gives both, the average is
+  the honest one to compare with — and say where the minimum came from.
+- This is [invariant 8](honesty-invariants.md) in the citation layer: self-consistency is not
+  verification, and a plausible number with a plausible URL is the most convincing kind of
+  wrong.
+
+---
+
 ## A gate is a place bugs hide
 
 N1's automatic stability check was gated on `max|S21| > 1` — "only amplifiers oscillate". The
@@ -227,11 +250,16 @@ Rigor without the entanglement, and the output is inspectable.
 
 ---
 
-## The same bug three times means the shape is wrong
+## The same bug four times means the shape is wrong
 
 Assigning two unrelated dataclasses to one variable across `if/else` branches broke mypy in
-`cli.py` twice and `server/app.py` once. Recorded in the code where it happened, with the
-count — a mistake made three times is a signal about the design, not about carelessness.
+`cli.py` twice, `server/app.py` once, and `receivers.py` once. Recorded in the code where it
+happened, with the count — a mistake made four times is a signal about the design, not about
+carelessness.
+
+The fix is always the same and always cheap: **branch and return, do not branch and merge.**
+By the fourth occurrence the right response was to write it here rather than to keep noting
+it in comments.
 
 ---
 

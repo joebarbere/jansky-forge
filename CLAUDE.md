@@ -123,6 +123,14 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
   - `server/` — M9, the optional web UI: `app.py` (routes), `templates.py` (markup as
     strings — no Jinja2, no CDN), `plots.py` (server-rendered SVG). **The UI must display a
     model's caveats**; tests enforce it.
+  - `receivers.py` — N4, the parts catalogue: amplifiers, digitizers and clocks with the
+    same provenance discipline as the antenna catalogue (`make audit` covers both and must
+    print nothing). Four availability tiers, so an unbuyable 3.5 K cryogenic part can sit
+    next to a hobby module honestly. **`compare_amplifiers` ranks against a real antenna**;
+    `would_a_better_lna_help` prices the ceiling *and* the achievable upgrade, and ranks only
+    actions. **There is deliberately no path from a catalogue entry to a `TwoPort`** — a test
+    asserts the absence of one, because a headline noise figure is a budget number and
+    Fmin/Γopt/Rn are design data (invariant 2).
   - `stability.py` — N1: Rollett K and Δ, the μ factors, source/load stability circles with
     **which side is safe**, MSG and MAG. `stability_notes()` is wired into
     `parse_touchstone_2port`, so **the check runs on any active device the tool reads** — the
@@ -175,6 +183,7 @@ publish when the tag disagrees with any of them.
 | `v0.10.0` | M9 — Interactive UI (FastAPI + htmx + canvas) |
 | `v0.11.0` | **N0 — Two-port foundations** (receiver track) |
 | `v0.12.0` | **N1 — Stability** (receiver track) |
+| `v0.13.0` | **N4 — Receiver selection** (receiver track; N2/N3 skipped, not cancelled) |
 | `v1.0.0` | **Not a feature** — tagged after one antenna is designed here, built from this tool's fabrication output, and measured back in |
 
 **Tags are allocated in the order milestones actually ship, not reserved in advance.** The
@@ -190,7 +199,7 @@ environment, reports, an MCP surface) are unshipped and unnumbered; see
 | Track | Plan | State |
 |---|---|---|
 | Antenna (M0–M9) | `plans/jansky_forge.md` | Complete. Remaining ideas are unnumbered |
-| Receiver (N0–N5) | `plans/receivers.md` | N0, N1 shipped. **N4 is the one worth doing next** |
+| Receiver (N0–N7) | `plans/receivers.md` | N0, N1, N4 shipped. N2/N3 skipped; **N5–N7 deferred, see plan §6** |
 
 Neither track moves the `v1.0.0` gate, which is a build.
 
@@ -240,6 +249,27 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 `rf-measurement-analyst` (M7) — see plan §7.
 
 ## Current status
+
+**N4 shipped — `v0.13.0` is released** (2026-08-09). The receiver track's point: a parts
+catalogue spanning hobby modules to a 3.5 K cryogenic InP HEMT, and "which should I buy?"
+answered against a real antenna.
+
+**The rule this milestone had to get right** is where invariant 2 actually falls. A
+datasheet's *headline* noise figure with a URL is a published fact, the same standing as a
+source flux with an epoch. Fmin, Γopt, Rn and S-parameters are *measurement-grade design
+data* and are still never shipped or inferred. So `receivers` does system budgets and does
+not do amplifier design, there is no path from a catalogue entry to a `TwoPort`, and a test
+asserts the absence of one. **If you are asked to add "just enough" noise parameters to a
+catalogue entry so it can be matched or checked for stability, that is the line.**
+
+**An honesty bug caught in its own first draft, worth remembering:** the advice ranked "a
+perfect 0 K amplifier" against "use better cable" and let the impossible option win. A
+ceiling is not an option. The verdict now ranks only actions and labels the 0 K figure
+*"impossible, not a target"*.
+
+**N6 (whole-system comparison) and N7 (algorithms) are deferred deliberately**, written up in
+`plans/receivers.md` §6 rather than half-built — a system-level verdict is exactly the kind
+of output people quote.
 
 **N1 shipped — `v0.12.0` is released** (2026-08-09). Stability, and the check now runs
 automatically on any active device the tool reads.

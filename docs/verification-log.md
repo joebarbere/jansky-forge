@@ -18,6 +18,11 @@ Where they disagree, the disagreement is deliberate and explained.
 | Balanis Ex 13.5 — ρ_e / ρ_h | 6.1555 / 6.6002 | 6.1555 / 6.6000 | Balanis 3rd ed. p. 779 |
 | Balanis Ex 13.5 — p_e = p_h | 5.4545 | 5.454 | " |
 | Balanis Ex 13.5 — s / t | 0.1576 / 0.6302 | 0.1575 / 0.63 | " |
+| Quantum limit at 21 cm (N4) | 0.0682 K | `hf/k` | Closed form |
+| SAWbird+ H1 (N4) | 58.7 K | 0.8 dB NF | [Nooelec datasheet](https://www.nooelec.com/store/downloads/dl/file/id/97/product/322/sawbird_h1_datasheet_revision_1.pdf) |
+| QPL9547 (N4) | 20.7 K | 0.3 dB NF @ 1.9 GHz | [Qorvo datasheet](https://www.mouser.com/datasheet/2/412/QPL9547_Data_Sheet-1854301.pdf) |
+| Cryogenic InP HEMT (N4) | **3.5 K avg** over 0.3-14 GHz at 4 K | 3.5 K avg (2.2 K min, at 6 GHz) | [Chalmers 2018](https://research.chalmers.se/en/publication/520245) |
+| NRAO 1980 / 2003 (N4) | 25 K @ 4.5 GHz / 2 K @ 4 GHz | as published | [NRAO CDL](https://science.nrao.edu/facilities/cdl/low-noise-amplifiers) |
 | Pozar Ex 12.1 — K (N1) | 0.6071 | 0.607 | Pozar ch. 12 |
 | Pozar Ex 12.1 — \|Δ\| (N1) | 0.6964 | 0.696 | " |
 | Pozar Ex 12.1 — source circle (N1) | 1.132∠68.5°, R 0.199 | 1.132∠68.5°, R 0.199 | " |
@@ -81,6 +86,7 @@ Where they disagree, the disagreement is deliberate and explained.
 | SWR by difference (M6 test) | `\|Z−50\|` | SWR ratio | 20 Ω and 80 Ω look equidistant; SWRs are 2.5 and 1.6 |
 | Windows encoding (M0 CI) | cp1252 default | UTF-8 reconfigure | CLI crashed mid-output for every Windows user |
 | Gain-collapse claim (N0 CLI) | "equal because the terminations are matched" | Equal only when the *device* is matched too | Printed three different numbers under a sentence saying they were equal |
+| Upgrade ranking (N4) | Ceiling ranked against an achievable action | Rank actions only | Advised buying an impossible 0 K amplifier over replacing 0.5 dB of cable |
 | `mu_load` docstring (N1) | "infinity for a unilateral device" | `1/\|S22\|`, finite | A test written from the docstring asserted the wrong value — the code was right |
 | **`as_stage` loss definition (N0)** | Insertion loss, `\|S21\|²` | **Available loss, `1/G_A`** | **Factor of two** in the noise temperature of any mismatched passive network — 2320 K where 1160 K is right — and the gain wrong too, so it did not cancel |
 | Noise-parameter Z0 (N0) | Assumed 50 Ω | The file's own Z0 | Rn is stored normalized, so every 75 Ω file's noise figure was mis-scaled |
@@ -113,6 +119,29 @@ Things found to be wrong *in the literature or the community*, not in this code:
   2022 v2.0 and 2012) for an identical configuration, unexplained.
 - **Baars et al.'s 1977 fading law** (0.93 %/yr for Cas A at 1.4 GHz) is now known to
   overpredict the decline.
+
+---
+
+## Sources opened, not just cited (N4)
+
+After the cryogenic entry turned out to be misattributed, every load-bearing catalogue figure
+was checked by **opening its source** rather than trusting a search summary:
+
+| Entry | Source opened | Agrees? |
+|---|---|---|
+| SAWbird+ H1 | [Nooelec product page](https://www.nooelec.com/store/sawbird-h1.html) | ✅ 0.8 dB standard / 1.05 dB Barebones, ≥40 dB, 65 MHz at 1.42 GHz |
+| QPL9547 | [datasheet listing](https://www.rfglobalnet.com/doc/ghz-ultra-low-noise-lna-qpl9547-datasheet-0001) | ✅ 0.3 dB NF, 19.5 dB gain **at 1.9 GHz**, 0.1-6.0 GHz |
+| Cryogenic InP HEMT | [Chalmers 2018](https://research.chalmers.se/en/publication/520245) | ✅ 3.5 K average, 0.3-14 GHz — after correcting a wrong citation |
+| NRAO 1980 / 2003 | [NRAO CDL](https://science.nrao.edu/facilities/cdl/low-noise-amplifiers) | ✅ 25 K at 4.5 GHz, 2 K at 4 GHz |
+
+**Not opened, and labelled accordingly:** the clock entries are order-of-magnitude figures for
+a *technology class*, not a specific product, and every one of them now says so in its own
+caveats. Digitizer entries carry vendor headline specs; their bit depths and tuning ranges are
+uncontroversial and their noise figures are deliberately absent rather than guessed.
+
+The datasheet PDFs for the SAWbird and the QPL9547 would not render as text, which is why the
+catalogue links the readable product/listing pages instead — a source a reader cannot open is
+not doing its job.
 
 ---
 

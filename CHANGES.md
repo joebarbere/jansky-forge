@@ -5,6 +5,79 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.13.0] — N4, Receiver selection
+
+The milestone the receiver track exists for, and the question people actually have with a
+shopping page open: **which of these should I buy, what did the previous generation manage,
+and what is the best anyone can do?**
+
+N2 and N3 were skipped rather than cancelled — they synthesise an amplifier from a bare
+transistor, and the practical value of the track was always N0 + N1 + N4.
+
+### Added
+- **`receivers`** — a parts catalogue with the antenna catalogue's provenance discipline:
+  amplifiers, digitizers and frequency standards, each with a real source URL, an
+  availability tier, and honest caveats. `make audit` now covers it and must print nothing.
+- **Four availability tiers** — amateur, professional, research, historical. A 3.5 K
+  cryogenic InP HEMT is in the catalogue *because* it is labelled unbuyable: it marks the
+  ceiling, so you can see how much of your system temperature is actually yours to fix.
+- **The historical axis.** NRAO's own figures: 25 K at 4.5 GHz in 1980, 2 K at 4 GHz by 2003.
+  A hobbyist's 58.7 K room-temperature module today is worse than a 1980 observatory's, and
+  that comparison is the point — it is also why the amateur hydrogen line is possible at all.
+- **`compare_amplifiers`** — ranks candidates by the system temperature they produce **on
+  your antenna**, with SEFD and G/T, because a noise figure alone answers nothing.
+- **`would_a_better_lna_help`** — prices the ceiling (a physically impossible 0 K receiver),
+  the achievable upgrade (the best part you can actually order at your tier), fixing
+  spillover, and removing the loss ahead of the amplifier, all on one scale.
+- **`quantum_noise_limit_k`** — `hf/k` = 0.0682 K at the hydrogen line. Every entry is
+  reported as a multiple of it, which is the honest way to read the cryogenic numbers: a
+  3.5 K band average is superb and still **51×** the limit.
+- `jansky-forge parts` and `jansky-forge choose-receiver`.
+
+### The line honesty invariant 2 draws, made precise
+A datasheet's **headline** noise figure, cited with its URL, is a published fact of the same
+standing as "Cas A is 1768 Jy at epoch 2016" — the source catalogue has done exactly this
+since M4. What stays forbidden is **measurement-grade design data**: Fmin, Γopt, Rn and
+S-parameters are never shipped, never invented, and never inferred from a headline.
+
+So there is deliberately **no path from a catalogue entry to a `TwoPort`**, and a test asserts
+the absence of one. This module does system budgets; it does not do amplifier design.
+
+### A citation error caught by opening the source
+The cryogenic entry was first written from a web-search summary — **2.2 K, cited to
+arXiv:1310.3088** — and both halves were wrong. That paper is a 27–33 GHz amplifier at 9.4 K,
+and the 2.2 K figure belongs to a different design where it is the **minimum, at 6 GHz**.
+
+The entry was internally consistent, carried a real URL, and passed the provenance audit. No
+test could have caught it: the tests check arithmetic, and this was a question about what a
+document says. It now uses the **3.5 K band average** from
+[Chalmers 2018](https://research.chalmers.se/en/publication/520245), says where the 2.2 K
+minimum comes from, and states plainly that the source gives no value at 1.42 GHz.
+
+New lesson: **a search summary is not a source.** The audit can check that a URL exists; only
+a person can check that it says what they wrote down.
+
+### An honesty bug caught in its own first draft
+The first version of `would_a_better_lna_help` ranked *"a perfect 0 K amplifier"* against
+*"use better cable"* — and let the impossible option win. They are not the same kind of
+thing: one is a physical impossibility, the other is a Saturday afternoon. The verdict now
+ranks **only actions**, prices the best part you could actually order, and reports the 0 K
+figure explicitly as *"impossible, not a target"*. A test pins it.
+
+### Two conclusions the arithmetic insists on
+- **A 1 ppm TCXO is good enough for hydrogen-line spectroscopy.** It puts a 21 cm line
+  300 m/s wrong against galactic linewidths of tens of km/s. A GPSDO bought to fix a
+  spectroscopy problem is a GPSDO bought to fix the wrong problem — though the same TCXO is
+  hopeless for anything coherent, and `clock_verdict` says both.
+- **An SDR's noise figure stops mattering above ~29 dB of front-end gain.** Dynamic range is
+  the axis that separates digitizers; a 12-bit radio buys 24 dB more of it than an 8-bit one,
+  which in a suburban RFI environment is worth more than any plausible noise-figure gap.
+
+### Deferred deliberately
+Whole-system comparison (N6) and algorithms (N7) are written up in `plans/receivers.md` §6
+rather than half-built. A system-level verdict is exactly the kind of output people quote, so
+doing it badly would be worse than not doing it.
+
 ## [0.12.0] — N1, Stability
 
 The milestone the receiver track exists to make cheap. An unstable amplifier does not
