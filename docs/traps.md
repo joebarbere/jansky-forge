@@ -144,6 +144,28 @@ that no internal consistency check catches. → [Lessons learned](lessons-learne
 
 At 21 cm in WR-650 they differ by **16 mm** — enough to ruin a match.
 
+### Touchstone two-port data is ordered `S11 S21 S12 S22`
+
+**S21 comes before S12** — the historical exception to row-major ordering, and it applies to
+two-port files only. Reading a `.s2p` the obvious way transposes the device:
+
+- For a **reciprocal** network (any passive one) `S12 = S21`, so the bug is *invisible*.
+- For an **amplifier** it reports the reverse isolation as the gain. In this project's test
+  file that is a **60 dB error** that still looks like a number you might believe.
+
+Smoke alarm: `TwoPort.is_reciprocal`. An amplifier that reads reciprocal has almost certainly
+been read wrong.
+
+### Matched terminations are not enough for the three gains to agree
+
+Transducer, available and operating gain are three different numbers. With `Γs = ΓL = 0`:
+
+    G_T = |S21|²        G_A = |S21|²/(1 − |S22|²)        G_P = |S21|²/(1 − |S11|²)
+
+They collapse to `|S21|²` only when the **device** is matched too — true of an ideal
+attenuator, false of every real amplifier. Say which gain you mean. Noise-figure calculations
+want **available** gain specifically.
+
 ### Polarization components are not the total
 
 A solver's gain array may hold `[component_1, component_2, total]`. Reading index 0 returns

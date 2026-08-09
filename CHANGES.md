@@ -5,6 +5,66 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.11.0] — N0, Two-port foundations
+
+The first milestone of the **receiver track** ([`plans/receivers.md`](plans/receivers.md)).
+M4 taught the tool to say *"your system is receiver-limited"* and then had nothing to offer.
+This is the vocabulary in which the offer will be written.
+
+It is deliberately foundational and deliberately dull: a `TwoPort`, the conversions between
+the ways of describing one, the three gain definitions, and a cascade. Everything in N1–N5 is
+written in these terms, so a mistake here would propagate silently through all of it — which
+is why every anchor below is *exact* rather than approximate.
+
+### Added
+- **`twoport`** — `TwoPort` (an S-matrix per frequency, plus provenance), `NoiseParameters`
+  with the full `F = Fmin + (4·Rn/Z0)·|Γs − Γopt|²/((1−|Γs|²)|1+Γopt|²)` model, S ↔ Z ↔ Y ↔
+  ABCD conversions, input/output reflection coefficients, the three gain definitions,
+  `cascade` via ABCD, and exactly-known constructors (`attenuator`, `transmission_line`,
+  `ideal_amplifier`) to test against.
+- **Native two-port Touchstone reading** — `.s2p` including the optional noise block, with no
+  network-analysis library required. A vendor's file should be readable with NumPy alone, the
+  same judgement as M7's one-port reader.
+- **`jansky-forge network <file.s2p>`** — read a part's data and say what it is: S-parameters,
+  all three gains, and the noise block if the file carries one.
+- **`as_stage`** — the seam back to M4. A passive network becomes a `sensitivity.Stage` whose
+  noise temperature is derived from its loss, so the Friis cascade written at M4 consumes
+  two-port data directly.
+- **`measure.parse_option_line`** — the Touchstone `#` line, factored out of M7's reader and
+  shared, since it is identical for every port count. This settles open question 1 in the
+  receiver plan: the two readers share a parser and nothing else.
+
+### The trap this milestone exists to encode
+**Two-port Touchstone is ordered `S11 S21 S12 S22` — S21 *before* S12**, the historical
+exception to row-major ordering. Reading it the obvious way transposes the device. For a
+reciprocal attenuator that is invisible; for an amplifier it reports the reverse isolation as
+the gain, which in the test file is a 60 dB error that still looks like a plausible number.
+`is_reciprocal` exists partly as a smoke alarm for it: an amplifier that reads reciprocal has
+almost certainly been read wrong.
+
+### A wrong claim, caught in its own output
+The first draft of the CLI printed *"these are equal because both terminations are matched"*
+under the three gains — and then printed three different numbers. Matched terminations are not
+enough: with `Γs = ΓL = 0` you get `G_T = |S21|²` but `G_A = |S21|²/(1−|S22|²)` and
+`G_P = |S21|²/(1−|S11|²)`, so they agree only when the **device** is matched too. The text now
+says so, and a test pins all three closed forms. It would have taught the reader precisely the
+confusion the module exists to prevent.
+
+### Verified before the code was written
+- Matched 3 dB pad, both ports terminated: all three gains `−3.0000 dB`, exactly.
+- 3 dB + 2 dB cascaded → `S21 = −5.0000 dB`, exactly.
+- S → ABCD → S round trip, maximum error `1.11e-16`; S → Z → S, `2.22e-16`.
+- A 3 dB passive loss gives `288.63 K` by both `twoport.as_stage` and M4's independent
+  `loss_to_temperature_k` — the two routes to one answer that ties this milestone to that one.
+- `scikit-rf` reads the same `.s2p` and agrees on every S-parameter, **including which index
+  S21 lands in**. CI installs the extra so this runs rather than skips.
+
+### Fixed
+- `cascade` raised NumPy's `operands could not be broadcast` instead of its own message when
+  two networks were on different-length grids: `np.allclose` *raises* on mismatched shapes
+  rather than returning `False`, so the length check has to come first. Found by the test
+  written for the error message, not by the error.
+
 ### Added
 - `docs/getting-started.md` — installation, the three-tier mental model, a full command
   reference, and library quickstarts for every module. **Every command and code snippet in

@@ -153,6 +153,27 @@ class MeasuredSweep:
 # --------------------------------------------------------------------------------------
 
 
+def parse_option_line(line: str) -> tuple[float, str, float]:
+    """Parse a Touchstone ``#`` option line into ``(frequency_scale, format, z0)``.
+
+    Shared with the two-port reader in :mod:`jansky_forge.twoport`: the option line is
+    identical for every port count, and two copies of a parser is two things to keep in step.
+
+    Touchstone's documented defaults are GHz, magnitude/angle, and 50 ohms — and the default
+    frequency unit being GHz rather than Hz is a trap for anyone who assumes SI.
+    """
+    scale, fmt, z0 = 1e9, "ma", DEFAULT_Z0_OHM
+    tokens = line.lstrip("#").lower().split()
+    for index, token in enumerate(tokens):
+        if token in _FREQ_UNITS:
+            scale = _FREQ_UNITS[token]
+        elif token in ("ri", "ma", "db"):
+            fmt = token
+        elif token == "r" and index + 1 < len(tokens):
+            z0 = float(tokens[index + 1])
+    return scale, fmt, z0
+
+
 def parse_touchstone(text: str, *, source: str = "") -> MeasuredSweep:
     """Read a one-port Touchstone (``.s1p``) file.
 
@@ -181,14 +202,7 @@ def parse_touchstone(text: str, *, source: str = "") -> MeasuredSweep:
                 comments.append(comment)
             continue
         if line.startswith("#"):
-            tokens = line[1:].lower().split()
-            for index, token in enumerate(tokens):
-                if token in _FREQ_UNITS:
-                    frequency_scale = _FREQ_UNITS[token]
-                elif token in ("ri", "ma", "db"):
-                    fmt = token
-                elif token == "r" and index + 1 < len(tokens):
-                    z0 = float(tokens[index + 1])
+            frequency_scale, fmt, z0 = parse_option_line(line)
             continue
         line = line.split("!", 1)[0]
         parts = re.split(r"[\s,]+", line.strip())

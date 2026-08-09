@@ -21,6 +21,12 @@ and whether you will actually see a given source in a given time.
 temperature, and beam maps from drift scans, ingested from the sibling ``jansky-observe``
 station software so a real antenna's numbers land next to the model's.
 
+**Receive** — (from N0) :mod:`jansky_forge.twoport` reads what a vendor says about an
+amplifier: two-port Touchstone including its noise block, the conversions between the ways of
+describing a network, and the three gain definitions that are routinely conflated. It hands
+straight to :mod:`jansky_forge.sensitivity`, so the question "would a better LNA help, or is
+spillover my problem?" is answered against a real antenna rather than in the abstract.
+
 Sibling of `jansky <https://github.com/joebarbere/jansky>`_ (the course),
 `jansky-research <https://github.com/joebarbere/jansky-research>`_ (the research), and
 `jansky-observe <https://github.com/joebarbere/jansky-observe>`_ (the station).

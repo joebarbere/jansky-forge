@@ -123,15 +123,24 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
   - `server/` — M9, the optional web UI: `app.py` (routes), `templates.py` (markup as
     strings — no Jinja2, no CDN), `plots.py` (server-rendered SVG). **The UI must display a
     model's caveats**; tests enforce it.
+  - `twoport.py` — N0, the receiver track's vocabulary: `TwoPort`, native `.s2p` reading
+    **including the noise block**, S↔Z↔Y↔ABCD, the three gain definitions, and `cascade`.
+    `as_stage()` hands a network to M4's Friis chain. **Touchstone two-port ordering is
+    `S11 S21 S12 S22`** — S21 before S12; reading it row-major transposes the device and
+    reports an amplifier's isolation as its gain. We ship **no** transistor data (invariant
+    2): Fmin, Γopt and Rn are read from a vendor's file or absent.
   - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`, `feed`,
-    `probe`, `sensitivity`, `sources`, `serve`.
-- `docs/` — ten milestones of accumulated knowledge: getting-started, traps, rules of thumb,
+    `probe`, `sensitivity`, `sources`, `serve`, `network`.
+- `docs/` — eleven milestones of accumulated knowledge: getting-started, traps, rules of thumb,
   workflows, lessons learned, known limits, the verification log, honesty invariants, and
   next steps. **Read `docs/traps.md` before touching the physics**, and add to it whenever
   something bites. `docs/next-steps.md` is the handover document — start there after a gap.
   Every example in `getting-started.md` is executed before it is committed.
 - `tests/` — pure, offline, no hardware and no network, ever. Golden values carry their
   arithmetic in a comment so a reader can check rather than trust.
+- `plans/receivers.md` — the receiver track (N0–N5): scope, the permanent out-of-scope list,
+  and the recommended N0+N1+N4 stopping point. Read it before adding anything about
+  amplifiers.
 - `plans/jansky_forge.md` — the full plan: survey, tiers, all fifteen milestones, testing
   strategy, cross-repo contracts, open questions.
 - `.claude/skills/` — our own skills, plus `simple-english/`, which is vendored from a third
@@ -159,12 +168,25 @@ publish when the tag disagrees with any of them.
 | `v0.8.0` | M7 — Measurement ingest (scikit-rf, NanoVNA Touchstone) |
 | `v0.9.0` | M8 — On-sky characterization (Y-factor, beam maps, transit SEFD) |
 | `v0.10.0` | M9 — Interactive UI (FastAPI + htmx + canvas) |
-| `v0.11.0` | M10 — Sweeps & optimization |
-| `v0.12.0` | M11 — Full-wave export (openEMS/NEC decks) |
-| `v0.13.0` | M12 — Site & environment (ground, terrain, RFI-aware siting, wind) |
-| `v0.14.0` | M13 — Reports & provenance bundles |
-| `v0.15.0` | M14 — MCP surface (Claude as a design peer) |
+| `v0.11.0` | **N0 — Two-port foundations** (receiver track) |
 | `v1.0.0` | **Not a feature** — tagged after one antenna is designed here, built from this tool's fabrication output, and measured back in |
+
+**Tags are allocated in the order milestones actually ship, not reserved in advance.** The
+original plan pre-assigned `v0.11.0`–`v0.15.0` to M10–M14; the receiver track then shipped
+first and took `v0.11.0`. Since both tracks share one version line — this is one package —
+pre-assignment cannot survive two tracks, so it has been dropped rather than fudged. The
+antenna track's remaining ideas (sweeps and optimization, full-wave export, site and
+environment, reports, an MCP surface) are unshipped and unnumbered; see
+`plans/jansky_forge.md` for what they contain and `docs/next-steps.md` for their priority.
+
+### The two tracks
+
+| Track | Plan | State |
+|---|---|---|
+| Antenna (M0–M9) | `plans/jansky_forge.md` | Complete. Remaining ideas are unnumbered |
+| Receiver (N0–N5) | `plans/receivers.md` | N0 shipped. **N1 (stability) is next** |
+
+Neither track moves the `v1.0.0` gate, which is a build.
 
 Use `/release`; never tag by hand.
 
@@ -213,7 +235,27 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M9 shipped — `v0.10.0` is released** (2026-08-09), together with `docs/`. The UI ships
+**N0 shipped — `v0.11.0` is released** (2026-08-09). The receiver track has started, and the
+tool can now read a vendor's `.s2p` with NumPy alone, name the three gains separately instead
+of conflating them, and hand a network straight to M4's noise budget.
+
+Two things it got wrong and fixed, both worth remembering because both were caught by
+something other than the code under test:
+
+- The CLI printed *"these are equal because both terminations are matched"* above three
+  visibly different numbers. Matched terminations are not enough — the gains collapse to
+  `|S21|²` only when the **device** is matched too. It would have taught exactly the
+  confusion the module exists to prevent.
+- `cascade`'s frequency-grid guard never fired, because `np.allclose` **raises** on mismatched
+  shapes rather than returning `False`. The check has to compare shapes first. Found by the
+  test written for the error message, not by the error.
+
+**N1 (stability) is next**, and is the highest-value single milestone in the track: Rollett's
+K and Δ, the μ-factor, and stability circles. An unstable amplifier costs someone a weekend of
+confusion, and the check is cheap. The stability test should then run automatically on any
+amplifier the tool touches, the way realizability runs on any pyramidal horn.
+
+**M9 shipped — `v0.10.0` was released** (2026-08-09), together with `docs/`. The UI ships
 without htmx, without a charting library and without a CDN — 0.12 ms synthesis means an HTTP
 round trip is network-bound, so inline JavaScript plus server-rendered SVG is enough, and it
 works offline where antennas actually get built.

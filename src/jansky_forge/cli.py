@@ -9,11 +9,14 @@ model's own warnings to make output tidy is not a trade this project makes.
 from __future__ import annotations
 
 import argparse
+import cmath
 import json
 import math
 import sys
 from collections.abc import Sequence
 from dataclasses import replace
+
+import numpy as np
 
 from jansky_forge import catalog, fabricate, feeds, horns
 from jansky_forge import sensitivity as sens
@@ -461,6 +464,62 @@ def _print_sensitivity(args) -> None:  # noqa: ANN001 - argparse namespace
         _print_estimate(estimate)
 
 
+def _print_network(args: argparse.Namespace) -> None:
+    """Read a vendor's ``.s2p`` and say what it is (N0)."""
+    from jansky_forge import twoport
+
+    network = twoport.read_touchstone_2port(args.path)
+    freq_hz = (
+        args.freq_mhz * 1e6 if args.freq_mhz else float(network.freq_hz[len(network.freq_hz) // 2])
+    )
+    s = network.at(freq_hz)
+
+    print(network.summary())
+    print(f"\n  at {freq_hz / 1e6:.3f} MHz")
+    for name, value in (("S11", s[0, 0]), ("S21", s[1, 0]), ("S12", s[0, 1]), ("S22", s[1, 1])):
+        magnitude_db = 20 * math.log10(abs(value)) if abs(value) > 0 else float("-inf")
+        print(
+            f"    {name}   {abs(value):8.4f} @ {math.degrees(cmath.phase(value)):+8.2f} deg"
+            f"   {magnitude_db:+8.2f} dB"
+        )
+
+    # The three gains are different numbers; printing one and calling it "gain" is the
+    # confusion this milestone exists to prevent. With both ports matched they agree.
+    print("\n  gain, with the ports matched (Gs = GL = 0):")
+    for label, gain in (
+        ("transducer", twoport.transducer_gain(s)),
+        ("available ", twoport.available_gain(s)),
+        ("operating ", twoport.operating_gain(s)),
+    ):
+        print(f"    {label}   {10 * math.log10(gain):+8.2f} dB")
+    if abs(s[0, 0]) > 1e-9 or abs(s[1, 1]) > 1e-9:
+        print(
+            "    - they differ by the device's own mismatch: matched terminations are not\n"
+            "      enough, the three collapse to |S21|^2 only when S11 = S22 = 0 as well"
+        )
+    print("    - your terminations will not be matched, so ask for the one you mean")
+
+    if network.noise is not None:
+        noise = network.noise
+        index = int(np.argmin(np.abs(noise.freq_hz - freq_hz)))
+        opt = complex(noise.gamma_opt[index])
+        print(f"\n  noise data, at {noise.freq_hz[index] / 1e6:.3f} MHz:")
+        print(f"    Fmin        {noise.fmin_db[index]:8.2f} dB")
+        print(f"    Gamma_opt   {abs(opt):8.4f} @ {math.degrees(cmath.phase(opt)):+8.2f} deg")
+        print(f"    Rn          {noise.rn_ohm[index]:8.2f} ohm")
+        matched = noise.noise_figure_db(0j, float(noise.freq_hz[index]), network.z0_ohm)
+        print(f"    NF at a matched (50 ohm) source: {matched:.2f} dB")
+        print(
+            "    - a matched source is NOT the best noise match; the penalty above is the "
+            "tradeoff N2 makes explicit"
+        )
+    else:
+        print("\n  no noise block in this file, so noise figure cannot be stated")
+
+    for note in network.notes:
+        print(f"\n  - {note}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="jansky-forge",
@@ -575,6 +634,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Epoch for a fading source's flux (Cas A and Tau A fade measurably)",
     )
 
+    p_net = sub.add_parser(
+        "network", help="Read a two-port Touchstone .s2p and report gain and noise data (N0)"
+    )
+    p_net.add_argument("path", help="Path to a .s2p file, e.g. a vendor's LNA data")
+    p_net.add_argument(
+        "--freq-mhz", type=float, help="Frequency to report at (default: middle of the sweep)"
+    )
+
     sub.add_parser("sources", help="List the catalogued radio sources, with provenance")
 
     p_serve = sub.add_parser("serve", help="Run the interactive web UI (M9, needs the ui extra)")
@@ -633,6 +700,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             ) from exc
         print(f"jansky-forge UI on http://{args.host}:{args.port}")
         uvicorn.run(create_app(), host=args.host, port=args.port, log_level="warning")
+        return 0
+
+    if args.command == "network":
+        _print_network(args)
         return 0
 
     if args.command == "sources":

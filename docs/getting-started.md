@@ -76,6 +76,7 @@ jansky-forge <command> --help      # every command has real help
 | `show <slug> [--freq-mhz N] [--json]` | One template: geometry, provenance, caveats, predicted performance |
 | `characterize <slug> [--band X] [--freq-mhz N]` | One template across several frequencies |
 | `sources` | Catalogued radio sources with provenance and epochs |
+| `network <file.s2p>` | Read a vendor's two-port data: S-parameters, all three gains, noise block |
 
 ### Designing
 
@@ -117,6 +118,9 @@ jansky-forge sensitivity --template discovery-dish --source cas-a --epoch-year 2
 
 # ...and galactic HI? (a different formula — see traps.md)
 jansky-forge sensitivity --template discovery-dish --source hi-inner-plane
+
+# What is this LNA my vendor sent data for?
+jansky-forge network qpl9547.s2p --freq-mhz 1420
 ```
 
 ---
@@ -191,6 +195,39 @@ model = mom.yagi_model(freq_hz=143.05e6, elements_m=mom.GRAVES_7EL_ELEMENTS, rad
 print(mom.compare_with_analytic(model, freq_hz=143.05e6, analytic_dbi=11.24).summary())
 ```
 
+### Read a part's two-port data
+
+```python
+from jansky_forge import twoport
+
+amp = twoport.read_touchstone_2port("lna.s2p")
+print(amp.summary())
+print("reciprocal?", amp.is_reciprocal)      # False for any amplifier -- if True, suspect a transpose
+
+s = amp.at(1_420_405_751.768)
+print(twoport.available_gain(s))             # the one noise-figure work uses
+
+if amp.noise is not None:                    # only if the vendor shipped a noise block
+    print(amp.noise.noise_figure_db(0j, 1.4204e9))   # NF into a matched 50 ohm source
+```
+
+Chain it, and hand the result to M4's noise budget:
+
+```python
+from jansky_forge import sensitivity as sens
+
+pigtail = twoport.attenuator(loss_db=0.2, freq_hz=amp.freq_hz)
+chain = twoport.cascade(pigtail, amp)                       # S-parameters cascade here...
+receiver_k = sens.cascade_noise_temperature_k([             # ...noise cascades in Friis, there
+    twoport.as_stage(pigtail, 1.4204e9),                    # passive: noise comes from its loss
+    twoport.as_stage(amp, 1.4204e9, noise_temp_k=21.0),     # active: you must supply it
+])
+```
+
+`receiver_k` is the **receiver** alone — 35.7 K for that pair. It is not Tsys; feed it to
+`system_temperature()` with the sky and your spillover efficiency to get that. Confusing the
+two flatters the answer, because the terms you left out are the warm ones.
+
 ### Read your VNA
 
 ```python
@@ -219,7 +256,8 @@ print(advice)
 | `sensitivity` | Tsys, SEFD, G/T, radiometer, sources |
 | `wires` | Dipoles, ground, arrays, Yagi estimate |
 | `mom` | Tier-2 backends, NEC export |
-| `measure` | Touchstone, reference plane, matching, comparison |
+| `measure` | Touchstone (1-port), reference plane, matching, comparison |
+| `twoport` | Two-port networks: `.s2p`, S↔Z↔Y↔ABCD, the three gains, cascade |
 | `onsky` | Y-factor, drift scans, transit, bundle ingest |
 | `server/` | The web UI |
 

@@ -419,3 +419,51 @@ def test_sensitivity_against_a_catalogued_extended_source(capsys):
     out = capsys.readouterr().out
     assert "Galactic HI" in out
     assert "reads the AVERAGE" in out  # the beam-averaging correction reaches the user
+
+
+# ---------------------------------------------------------------------------------------
+# N0 -- reading a two-port
+# ---------------------------------------------------------------------------------------
+
+DEMO_S2P = """! demo amplifier, invented numbers
+# HZ S RI R 50
+1.3e9 -0.20 0.10   9.00 1.00   0.010 0.002  -0.30 0.05
+1.4e9 -0.18 0.08  10.00 0.50   0.012 0.001  -0.28 0.04
+1.5e9 -0.16 0.06   9.50 0.20   0.014 0.000  -0.26 0.03
+1.3e9 0.30 0.45  40.0 0.20
+1.4e9 0.32 0.44  45.0 0.21
+1.5e9 0.35 0.43  50.0 0.22
+"""
+
+
+def test_network_reads_an_s2p_and_names_all_three_gains(tmp_path, capsys):
+    path = tmp_path / "amp.s2p"
+    path.write_text(DEMO_S2P)
+    assert cli.main(["network", str(path)]) == 0
+    out = capsys.readouterr().out
+    assert "non-reciprocal (active)" in out
+    # S21 must be reported as the gain and S12 as the isolation -- the ordering trap.
+    assert "+20.01 dB" in out
+    assert "transducer" in out and "available" in out and "operating" in out
+    # And it must not claim they are equal when the device is mismatched.
+    assert "S11 = S22 = 0" in out
+    assert "Fmin" in out and "Gamma_opt" in out
+    assert "NOT the best noise match" in out
+
+
+def test_network_reports_a_chosen_frequency(tmp_path, capsys):
+    path = tmp_path / "amp.s2p"
+    path.write_text(DEMO_S2P)
+    assert cli.main(["network", str(path), "--freq-mhz", "1300"]) == 0
+    assert "at 1300.000 MHz" in capsys.readouterr().out
+
+
+def test_network_says_so_when_a_file_carries_no_noise_data(tmp_path, capsys):
+    path = tmp_path / "pad.s2p"
+    path.write_text(
+        "# HZ S RI R 50\n1.4e9 0 0 0.708 0 0.708 0 0 0\n1.5e9 0 0 0.708 0 0.708 0 0 0\n"
+    )
+    assert cli.main(["network", str(path)]) == 0
+    out = capsys.readouterr().out
+    assert "no noise block" in out
+    assert "reciprocal (passive)" in out
