@@ -170,6 +170,30 @@ spillover is costing you 21 K, fix the feed first. Compare terms before buying p
 
 ---
 
+## Stability
+
+| Quantity | Formula |
+|---|---|
+| Δ | `S11·S22 − S12·S21` |
+| Rollett K | `(1 − \|S11\|² − \|S22\|² + \|Δ\|²) / (2\|S12·S21\|)` |
+| μ (load plane) | `(1 − \|S11\|²) / (\|S22 − Δ·S11*\| + \|S12·S21\|)` |
+| Unconditionally stable | `K > 1` **and** `\|Δ\| < 1` ⟺ `μ > 1` |
+| Load stability circle | `C = (S22 − Δ·S11*)* / (\|S22\|² − \|Δ\|²)`, `R = \|S12·S21 / (\|S22\|² − \|Δ\|²)\|` |
+| MSG (K < 1) | `\|S21/S12\|` |
+| MAG (K > 1 only) | `\|S21/S12\|·(K − √(K²−1))` |
+
+**μ is a distance.** μ = 1.4 means every load out to `|Γ| = 1.4` is safe, so the passive
+region has margin. μ = 0.86 means an oscillating load exists at `|Γ| = 0.86` — inside the
+Smith chart, so your matches are not free choices. Exactly: `μ = |C_L| − R_L`.
+
+**"Potentially unstable" is normal**, not a fault. Most low-noise transistors are, over part
+of their range. It means pay attention to the terminations, not throw the part away.
+
+**Which side of the circle is safe is not always the outside.** Decide it from a termination
+whose answer you already know: at `Γ = 0` the input sees exactly S11.
+
+---
+
 ## On-sky
 
 | Quantity | Rule |

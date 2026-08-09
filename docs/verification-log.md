@@ -18,6 +18,13 @@ Where they disagree, the disagreement is deliberate and explained.
 | Balanis Ex 13.5 — ρ_e / ρ_h | 6.1555 / 6.6002 | 6.1555 / 6.6000 | Balanis 3rd ed. p. 779 |
 | Balanis Ex 13.5 — p_e = p_h | 5.4545 | 5.454 | " |
 | Balanis Ex 13.5 — s / t | 0.1576 / 0.6302 | 0.1575 / 0.63 | " |
+| Pozar Ex 12.1 — K (N1) | 0.6071 | 0.607 | Pozar ch. 12 |
+| Pozar Ex 12.1 — \|Δ\| (N1) | 0.6964 | 0.696 | " |
+| Pozar Ex 12.1 — source circle (N1) | 1.132∠68.5°, R 0.199 | 1.132∠68.5°, R 0.199 | " |
+| Pozar Ex 12.1 — load circle (N1) | 1.363∠46.7°, R 0.500 | 1.361∠47.0°, R 0.50 | " |
+| \|Γin\| on the stability circle (N1) | 1.000000000 | 1 exactly | The definition, at 500 points |
+| μ vs \|C_L\| − R_L (N1) | agree to 1e-9 | identity | Ties μ to the circles |
+| K/Δ vs μ vs brute force (N1) | agree 4000/4000 | equivalent criteria | The definition, swept |
 | Matched pad, all three gains (N0) | −3.0000 dB | −L exactly | Closed form |
 | 3 dB + 2 dB cascaded (N0) | −5.0000 dB | −5 exactly | Closed form |
 | S → ABCD → S round trip (N0) | 1.11e-16 | 0 | Machine precision |
@@ -74,6 +81,7 @@ Where they disagree, the disagreement is deliberate and explained.
 | SWR by difference (M6 test) | `\|Z−50\|` | SWR ratio | 20 Ω and 80 Ω look equidistant; SWRs are 2.5 and 1.6 |
 | Windows encoding (M0 CI) | cp1252 default | UTF-8 reconfigure | CLI crashed mid-output for every Windows user |
 | Gain-collapse claim (N0 CLI) | "equal because the terminations are matched" | Equal only when the *device* is matched too | Printed three different numbers under a sentence saying they were equal |
+| `mu_load` docstring (N1) | "infinity for a unilateral device" | `1/\|S22\|`, finite | A test written from the docstring asserted the wrong value — the code was right |
 | **`as_stage` loss definition (N0)** | Insertion loss, `\|S21\|²` | **Available loss, `1/G_A`** | **Factor of two** in the noise temperature of any mismatched passive network — 2320 K where 1160 K is right — and the gain wrong too, so it did not cancel |
 | Noise-parameter Z0 (N0) | Assumed 50 Ω | The file's own Z0 | Rn is stored normalized, so every 75 Ω file's noise figure was mis-scaled |
 | Unstable-device gain (N0) | Negative power ratio | Raise with the diagnosis | `math domain error` from the CLI, or a negative "gain" believed |
@@ -119,4 +127,7 @@ they cannot silently skip:
   index S21 lands in)
 - N0's `as_stage` against a Thévenin analysis of a series resistor — first principles, no
   S-parameters involved
+- N1's stability criteria against a brute-force sweep of the passive termination disk — the
+  definition, not another formula
+- `scikit-rf` on K and MSG (N1)
 - `catalog.audit()` provenance check (M0), which fails the build on any output

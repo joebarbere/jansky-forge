@@ -180,6 +180,32 @@ answer, because the terms left out are the warm ones.
 
 ---
 
+## "Is this amplifier going to oscillate?"
+
+```bash
+jansky-forge network lna.s2p --freq-mhz 1420
+```
+
+Read the stability block in this order:
+
+1. **The verdict across the whole file**, not at your frequency. A transistor has most gain
+   below the band you want it in, so the frequency where it oscillates is usually one you
+   were not thinking about.
+2. **μ, as a distance.** Above 1 is safe; 0.86 means an oscillating load exists at
+   `|Γ| = 0.86`, inside the Smith chart.
+3. **The circles, and which side is stable** — the output says. That tells you which
+   terminations to avoid, which is actionable in a way "potentially unstable" is not.
+4. **MSG, not MAG**, if K < 1. MAG does not exist there and the tool refuses to print one.
+
+"Potentially unstable" is a normal answer for a low-noise transistor. It means the source and
+load matches are not free choices — not that the part is faulty.
+
+**What it cannot tell you:** anything outside the frequencies in the file. That is the gap
+worth worrying about, because vendors often sweep only the intended band while the danger is
+below it.
+
+---
+
 ## "Add a build to the catalogue"
 
 1. Find the **primary** source. A forum post repeating a number is not a source.

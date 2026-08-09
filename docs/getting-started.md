@@ -234,6 +234,26 @@ is not Tsys; feed it to
 `system_temperature()` with the sky and your spillover efficiency to get that. Confusing the
 two flatters the answer, because the terms you left out are the warm ones.
 
+### Will this amplifier oscillate?
+
+```python
+from jansky_forge import stability, twoport
+
+amp = twoport.read_touchstone_2port("lna.s2p")
+print(stability.analyse(amp).summary())     # every frequency, and the worst one
+
+s = amp.at(1_420_405_751.768)
+if not stability.is_unconditionally_stable(s):
+    print(stability.source_stability_circle(s).summary())
+    print(stability.load_stability_circle(s).summary())
+    # ...and ask about a specific match directly:
+    print("is 0.3+0.2j a safe load?", stability.load_stability_circle(s).is_stable(0.3 + 0.2j))
+```
+
+You do not have to remember to call this. Reading a `.s2p` for an **active** device attaches
+the warning to `amp.notes` automatically — the same way realizability runs on any pyramidal
+horn, and for the same reason.
+
 ### Read your VNA
 
 ```python
@@ -264,6 +284,7 @@ print(advice)
 | `mom` | Tier-2 backends, NEC export |
 | `measure` | Touchstone (1-port), reference plane, matching, comparison |
 | `twoport` | Two-port networks: `.s2p`, S↔Z↔Y↔ABCD, the three gains, cascade |
+| `stability` | K, Δ, μ, stability circles, MSG/MAG — runs automatically on any amplifier |
 | `onsky` | Y-factor, drift scans, transit, bundle ingest |
 | `server/` | The web UI |
 

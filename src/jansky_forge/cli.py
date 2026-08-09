@@ -464,6 +464,49 @@ def _print_sensitivity(args) -> None:  # noqa: ANN001 - argparse namespace
         _print_estimate(estimate)
 
 
+def _print_stability(network, freq_hz: float) -> None:  # noqa: ANN001 - TwoPort
+    """Stability (N1), reported for any active device — never on request only.
+
+    An amplifier's stability is not an advanced topic you opt into. It is the difference
+    between a receiver and a weekend spent blaming the SDR.
+    """
+    from jansky_forge import stability as stab
+
+    if float(np.max(np.abs(network.s21))) <= 1.0:
+        return  # passive: it cannot oscillate, and saying so would be noise
+
+    report = stab.analyse(network)
+    print(f"\n  stability (N1): {report.summary()}")
+
+    s = network.at(freq_hz)
+    print(
+        f"    at {freq_hz / 1e6:.3f} MHz   K = {stab.rollett_k(s):.3f}   "
+        f"|Δ| = {abs(stab.determinant(s)):.3f}   μ = {stab.mu_load(s):.3f}   "
+        f"μ' = {stab.mu_source(s):.3f}"
+    )
+    print(f"    max stable gain (MSG)      {stab.max_stable_gain_db(s):8.2f} dB")
+    try:
+        print(f"    max available gain (MAG)   {stab.max_available_gain_db(s):8.2f} dB")
+    except ValueError:
+        print("    max available gain (MAG)       — does not exist for a K < 1 device")
+
+    if not stab.is_unconditionally_stable(s):
+        for plane in ("source", "load"):
+            try:
+                circle = (
+                    stab.source_stability_circle(s)
+                    if plane == "source"
+                    else stab.load_stability_circle(s)
+                )
+            except ValueError as reason:
+                print(f"    {plane} circle: {reason}")
+                continue
+            print(f"    {circle.summary()}")
+
+    for note in report.notes:
+        print(f"    - {note}")
+
+
 def _print_network(args: argparse.Namespace) -> None:
     """Read a vendor's ``.s2p`` and say what it is (N0)."""
     from jansky_forge import twoport
@@ -503,6 +546,8 @@ def _print_network(args: argparse.Namespace) -> None:
             "      enough, the three collapse to |S21|^2 only when S11 = S22 = 0 as well"
         )
     print("    - your terminations will not be matched, so ask for the one you mean")
+
+    _print_stability(network, freq_hz)
 
     if network.noise is not None:
         noise = network.noise

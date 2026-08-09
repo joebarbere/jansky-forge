@@ -5,6 +5,67 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.12.0] — N1, Stability
+
+The milestone the receiver track exists to make cheap. An unstable amplifier does not
+announce itself: it gives you a noise floor that will not sit still, spurs that come and go,
+and a system that behaves differently when you touch the case — a weekend of confusion,
+blamed on the SDR, the cable, the sun, and eventually the sky. The check costs microseconds
+and is decidable in closed form.
+
+### Added
+- **`stability`** — Rollett's `K` and `Δ`, the `μ` and `μ′` factors, source and load
+  stability circles with **which side is safe**, MSG and MAG, and a `StabilityReport` over
+  the whole measured range.
+- **The check runs automatically on any active device the tool reads**, the way realizability
+  runs on any pyramidal horn. `parse_touchstone_2port` attaches the warning; there is no flag
+  to turn it off, because the person who most needs it is the one who did not think to ask.
+  Passive networks get nothing — a pad cannot oscillate and saying so would be noise.
+- `jansky-forge network` now reports stability, the two circles when they matter, and both
+  gain ceilings.
+
+### Verified against the definition, not another formula
+Unconditional stability *means* `|Γin| < 1` for every passive load and `|Γout| < 1` for every
+passive source. That is checkable by brute force, so K, μ and a sweep of the unit disk are
+three independent routes to one answer:
+
+| Check | Result |
+|---|---|
+| Pozar Ex 12.1, HP HFET-102 at 2 GHz | `K = 0.6071` (published 0.607), `\|Δ\| = 0.6964` (0.696) |
+| Its source stability circle | `C = 1.132∠68.5°, R = 0.199` — published exactly |
+| Its load stability circle | `C = 1.363∠46.7°, R = 0.500` (published 1.361∠47.0°, 0.50) |
+| `\|Γin\|` on the load stability circle | `1.000000000` at all 500 points — the circle *is* the boundary |
+| K/Δ vs μ vs brute force | agree on 4000 random networks |
+| μ vs `\|C_L\| − R_L` | equal to 1e-9; ties μ and the circles to each other |
+| `scikit-rf` | agrees on K and MSG to 1e-9, run in CI rather than skipped |
+
+### A trap found while writing the tests
+**A brute-force sweep of the Smith chart can step straight over an unstable region.** Some
+devices have an unstable patch a few thousandths across, sitting well inside the passive
+disk; a uniform 600 × 600 grid — 360 000 points — walks past it and reports the device safe,
+while `|Γin|` on that tiny circle is exactly 1. It is now a test, and it is the concrete
+argument for closed-form circles over sampling: *"I swept it and it looked fine"* is not a
+stability proof.
+
+### Deliberate refusals
+- `max_available_gain_db` **raises** for `K ≤ 1` rather than falling back to MSG. Quietly
+  substituting one for the other is how a potentially unstable part ends up quoted at a gain
+  it cannot hold.
+- `is_unconditionally_stable` evaluates the classical and geometric criteria and requires
+  them to agree, since they are provably equivalent and a disagreement is a bug.
+- The report names the **worst frequency**, not the design frequency. A transistor has most
+  gain below the band you want it in, so the frequency where it oscillates is usually one you
+  were not thinking about — and the vendor's sweep often does not go there, which the notes
+  say out loud.
+
+### Fixed
+- `mu_load`'s docstring claimed it returns infinity for any unilateral device. It does not,
+  and should not: with no feedback the load still sees S22, so μ = `1/|S22|` and the load
+  stability circle degenerates to the single point `1/S22`. Infinity is correct only when
+  `S22 = 0` as well. Caught by a test written from the wrong docstring.
+- Following N0's lesson, `tests/test_stability.py` was added to the CI optional-extras line
+  in the same commit as the test file, so the `scikit-rf` cross-check runs rather than skips.
+
 ## [0.11.0] — N0, Two-port foundations
 
 The first milestone of the **receiver track** ([`plans/receivers.md`](plans/receivers.md)).

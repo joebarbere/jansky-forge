@@ -487,3 +487,33 @@ def test_network_diagnoses_an_unstable_device_instead_of_crashing(tmp_path, caps
     assert out.count("undefined") == 2  # available and operating are not
     assert "returns more power than it receives" in out
     assert "N1's stability circles" in out
+
+
+def test_network_reports_stability_for_an_amplifier(tmp_path, capsys):
+    """N1's requirement: the check runs on any amplifier the tool touches, unasked."""
+    path = tmp_path / "hfet.s2p"
+    path.write_text(
+        "! HP HFET-102, Pozar Example 12.1\n"
+        "# HZ S MA R 50\n"
+        "1.9e9 0.894 -60.6  3.122 123.6  0.020 62.4  0.781 -27.6\n"
+        "2.0e9 0.894 -60.6  3.122 123.6  0.020 62.4  0.781 -27.6\n"
+    )
+    assert cli.main(["network", str(path), "--freq-mhz", "2000"]) == 0
+    out = capsys.readouterr().out
+    assert "stability (N1)" in out
+    assert "POTENTIALLY UNSTABLE" in out
+    assert "K = 0.607" in out and "0.696" in out  # the textbook numbers
+    assert "source stability circle" in out and "load stability circle" in out
+    assert "max stable gain (MSG)" in out and "21.93" in out
+    assert "does not exist for a K < 1 device" in out  # MAG must not be substituted
+    assert "does not mean the part is faulty" in out
+
+
+def test_network_is_quiet_about_stability_for_a_passive_part(tmp_path, capsys):
+    """A pad cannot oscillate, and telling someone so would be noise."""
+    path = tmp_path / "pad.s2p"
+    path.write_text(
+        "# HZ S RI R 50\n1.4e9 0 0 0.708 0 0.708 0 0 0\n1.5e9 0 0 0.708 0 0.708 0 0 0\n"
+    )
+    assert cli.main(["network", str(path)]) == 0
+    assert "stability (N1)" not in capsys.readouterr().out
