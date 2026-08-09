@@ -44,6 +44,7 @@ from __future__ import annotations
 import cmath
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -56,6 +57,12 @@ from jansky_forge.measure import DEFAULT_Z0_OHM, parse_option_line
 #: standard actually distinguishes on.
 _S_COLUMNS = 9
 _NOISE_COLUMNS = 5
+
+#: How much apparent gain counts as floating-point noise rather than amplification. A
+#: lossless passive network has G_A = 1 exactly, and computing it through the cancellation
+#: ``|S21|²/(1 − |S22|²)`` lands a few ulp either side — so without this, whether an ideal
+#: matching network is called "an amplifier" is decided by the last bit.
+_LOSSLESS_TOLERANCE_DB = 1e-6
 
 
 @dataclass(frozen=True)
@@ -94,9 +101,7 @@ class NoiseParameters:
                 "receives is not physical, and Γopt = −1 makes the excess-noise term singular"
             )
 
-    def noise_figure_db(
-        self, gamma_source: complex, freq_hz: float, z0_ohm: float | None = None
-    ) -> float:
+    def noise_figure_db(self, gamma_source: complex, freq_hz: float) -> float:
         """Noise figure for a given source match.
 
         F = Fmin + (4·Rn/Z0)·|Γs − Γopt|² / ((1 − |Γs|²)·|1 + Γopt|²)
@@ -115,8 +120,7 @@ class NoiseParameters:
                 f"{self.freq_hz[0] / 1e6:.3f}-{self.freq_hz[-1] / 1e6:.3f} MHz. Noise "
                 "parameters are not extrapolated; the vendor did not measure there."
             )
-        if z0_ohm is None:
-            z0_ohm = self.z0_ohm
+        z0_ohm = self.z0_ohm
         fmin = float(np.interp(freq_hz, self.freq_hz, self.fmin_db))
         rn = float(np.interp(freq_hz, self.freq_hz, self.rn_ohm))
         opt = complex(
@@ -383,9 +387,16 @@ def z_to_s(z: np.ndarray, z0_ohm: float = DEFAULT_Z0_OHM) -> np.ndarray:
 def s_to_y(s: np.ndarray, z0_ohm: float = DEFAULT_Z0_OHM) -> np.ndarray:
     """S-matrix to admittance matrix: Y = (1/Z0)(I − S)(I + S)⁻¹.
 
-    Computed directly rather than as ``inv(s_to_z(...))``. A shunt element has a perfectly
-    good Y matrix and a **singular Z matrix**, so the inverse-of-an-inverse route raises
-    `LinAlgError` on a network the answer exists for.
+    Computed directly rather than as ``inv(s_to_z(...))``. A bare **series** impedance
+    carries ``I1 = −I2``, so its Z matrix does not exist while its Y matrix is perfectly well
+    defined — and the inverse-of-an-inverse route does not merely fail there, it usually
+    fails *quietly*. For a series 200 Ω in 50 Ω it returns 0.003906 S where the truth is
+    0.005 S, a **21.9% error with no exception**, because the ill-conditioned Z matrix
+    inverts to a plausible-looking number. Only at the one ratio where ``I − S`` is exactly
+    singular does it raise.
+
+    (A **shunt** element is the mirror case: it has a Z matrix and no Y, and this function
+    correctly raises on it.)
     """
     identity = np.eye(2, dtype=complex)
     return (identity - s) @ np.linalg.inv(identity + s) / z0_ohm
@@ -394,6 +405,24 @@ def s_to_y(s: np.ndarray, z0_ohm: float = DEFAULT_Z0_OHM) -> np.ndarray:
 # --------------------------------------------------------------------------------------
 # Reflection coefficients and the three gains
 # --------------------------------------------------------------------------------------
+
+
+def _unstable_message(symbol: str, magnitude: float, which: str) -> str:
+    """Why a reflection coefficient above 1 makes a gain meaningless.
+
+    Deliberately does **not** assert that the device is oscillating. It usually is — that is
+    what potential instability means for an active part — but a measured passive ``.s2p``
+    can show ``|S22| = 1.0001`` from ordinary calibration overshoot near total reflection,
+    and telling someone their cable is oscillating would send them looking for a fault that
+    is in the calibration.
+    """
+    return (
+        f"|{symbol}| = {magnitude:.4f}, so this port returns more power than it receives and "
+        f"{which.lower()} gain has no meaning here. For an active device that is potential "
+        "instability — the thing N1's stability circles exist to map. For measured passive "
+        "data just above 1 it is usually calibration overshoot near total reflection; "
+        "re-check the cal or trim the sweep rather than trusting the number."
+    )
 
 
 def input_reflection(s: np.ndarray, gamma_load: complex) -> complex:
@@ -436,14 +465,15 @@ def available_gain(s: np.ndarray, *, gamma_source: complex = 0j) -> float:
     figure and cascade calculations — noise cares about what the network could deliver, not
     what a particular load happened to accept.
     """
+    if abs(gamma_source) >= 1.0:
+        raise ValueError(
+            f"|Γs| = {abs(gamma_source):.3f}; a passive source cannot reflect more than it "
+            "receives, so this is not a termination the network could see"
+        )
     s11, s21 = s[0, 0], s[1, 0]
     gamma_out = output_reflection(s, gamma_source)
     if abs(gamma_out) >= 1.0:
-        raise ValueError(
-            f"|Γout| = {abs(gamma_out):.3f} for this source match, so the network delivers "
-            "more power than it is given: it is oscillating, not amplifying. Available gain "
-            "has no meaning here. This is what N1's stability circles are for."
-        )
+        raise ValueError(_unstable_message("Γout", abs(gamma_out), "Available"))
     denominator = abs(1 - s11 * gamma_source) ** 2 * (1 - abs(gamma_out) ** 2)
     if denominator == 0:
         raise ValueError("degenerate source match; available gain is singular here")
@@ -456,14 +486,15 @@ def operating_gain(s: np.ndarray, *, gamma_load: complex = 0j) -> float:
     Depends only on the load. Also called power gain, which is unhelpfully vague given the
     other two are also powers.
     """
+    if abs(gamma_load) >= 1.0:
+        raise ValueError(
+            f"|ΓL| = {abs(gamma_load):.3f}; a passive load cannot reflect more than it "
+            "receives, so this is not a termination the network could see"
+        )
     s22, s21 = s[1, 1], s[1, 0]
     gamma_in = input_reflection(s, gamma_load)
     if abs(gamma_in) >= 1.0:
-        raise ValueError(
-            f"|Γin| = {abs(gamma_in):.3f} for this load, so the input port reflects more "
-            "power than it receives: the network is oscillating, not amplifying. Operating "
-            "gain has no meaning here. This is what N1's stability circles are for."
-        )
+        raise ValueError(_unstable_message("Γin", abs(gamma_in), "Operating"))
     denominator = (1 - abs(gamma_in) ** 2) * abs(1 - s22 * gamma_load) ** 2
     if denominator == 0:
         raise ValueError("degenerate load match; operating gain is singular here")
@@ -630,26 +661,83 @@ def as_stage(
     2320 K where the true excess noise temperature is 1160 K, a **factor of two**, and it
     does not cancel downstream because the gain is wrong too.
 
-    Because available gain depends on the source, so does this. ``gamma_source`` defaults to
-    a matched source; in a real chain it is the previous stage's output reflection, and if
-    you care about that you must say so rather than let a default decide it quietly.
+    Because available gain depends on the source, so does this — and so does the noise
+    temperature, when the file carries a noise block. ``gamma_source`` defaults to a matched
+    source, which is right for a single part on the bench and **wrong for a stage in a
+    chain**, where it is the previous stage's Γout.
+
+    For a chain, use :func:`as_stages`, which threads it. The error from not doing so is
+    optimistic — 1.76 dB at a VSWR 1.5 interface, 4.8 dB at VSWR 3 — and a system temperature
+    reported lower than the truth is wrong in the direction that matters.
 
     With no ``noise_temp_k`` the network is assumed **passive at room temperature**, which is
     right for a cable, a pad or a filter and wrong for an amplifier. Pass the amplifier's
     noise figure instead.
     """
-    from jansky_forge.sensitivity import Stage, loss_to_temperature_k
+    from jansky_forge.sensitivity import Stage, loss_to_temperature_k, noise_figure_to_temperature_k
 
     s = network.at(freq_hz)
     gain_db = 10 * math.log10(available_gain(s, gamma_source=gamma_source))
+    if noise_temp_k is None and network.noise is not None:
+        # The file carries noise parameters, so the honest noise temperature is the one for
+        # *this* source match — not a single datasheet number. Fmin is only achieved at Γopt,
+        # and at Γs = 0 a real device is typically a few tenths of a dB worse.
+        noise_temp_k = noise_figure_to_temperature_k(
+            network.noise.noise_figure_db(gamma_source, freq_hz)
+        )
     if noise_temp_k is None:
-        if gain_db > 0:
+        # A *lossless* passive network — an ideal transformer, a lossless matching section —
+        # has G_A = 1 to within floating-point noise, and computing it through
+        # |S21|²/(1 − |S22|²) makes that a cancellation. Without a tolerance the sign of the
+        # last bit decides whether the tool calls an ideal matching network an amplifier.
+        if gain_db > _LOSSLESS_TOLERANCE_DB:
             raise ValueError(
-                f"this network has {gain_db:+.1f} dB of available gain, so it is not passive "
+                f"this network has {gain_db:+.2f} dB of available gain, so it is not passive "
                 "and its noise temperature cannot be derived from loss. Supply noise_temp_k "
-                "(from the device's noise figure)."
+                "(from the device's noise figure), or a noise block in the file."
             )
+        gain_db = min(gain_db, 0.0)
         # F = 1/G_A for a passive network at 290 K. loss_to_temperature_k wants the loss in
         # dB, which is the available gain with its sign flipped.
         noise_temp_k = loss_to_temperature_k(-gain_db)
     return Stage(name or network.source or "two-port", gain_db, noise_temp_k)
+
+
+def as_stages(
+    chain: Sequence[TwoPort | tuple[TwoPort, float | None]],
+    freq_hz: float,
+    *,
+    gamma_source: complex = 0j,
+    names: Sequence[str] | None = None,
+) -> list:
+    """Turn a whole chain into Stages, threading each stage's source match through it.
+
+    **Use this rather than calling :func:`as_stage` repeatedly.** Available gain is a
+    function of the source a stage actually sees, which is the previous stage's Γout — not
+    50 Ω. Evaluating every stage at Γs = 0 and multiplying the results is not the same
+    number, and the direction it errs in is the dangerous one.
+
+    Two matched-in-isolation pads with a reactive mismatch between them, at a garden-variety
+    VSWR 1.5 interface, come out **1.76 dB optimistic** — the tool would report 1160 K where
+    the truth is 1740 K. At VSWR 3 it is 4.8 dB. A sensitivity tool that quietly reports a
+    *lower* system temperature than the truth is wrong in the one direction that matters,
+    which is why this function exists rather than a docstring warning.
+
+    Each element is a network, or a ``(network, noise_temp_k)`` pair. Pass ``None`` for the
+    noise temperature to let it be derived — from the file's noise block if it has one,
+    otherwise from the network's loss if it is passive.
+
+    Threading is exact: available gain composes multiplicatively when each stage is evaluated
+    at the source it genuinely sees, so the chain's overall available gain equals the product
+    of the stage values this returns.
+    """
+    stages = []
+    running = gamma_source
+    for index, element in enumerate(chain):
+        network, noise = element if isinstance(element, tuple) else (element, None)
+        name = names[index] if names is not None and index < len(names) else ""
+        stages.append(
+            as_stage(network, freq_hz, noise_temp_k=noise, gamma_source=running, name=name)
+        )
+        running = output_reflection(network.at(freq_hz), running)
+    return stages

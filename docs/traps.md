@@ -170,6 +170,20 @@ cascade.
 Sanity check with no S-parameters at all: Thévenin says a series 200 Ω fed from 50 Ω leaves
 Voc unchanged and presents 250 Ω, so available gain is 50/250 = 1/5, `F = 5`, `Te = 1160 K`.
 
+### Available gain depends on the source, so a chain must thread it
+
+Evaluating every stage of a receiver at Γs = 0 and multiplying is **not** the chain's
+available gain unless every interface is matched. The error is optimistic — it reports a
+*lower* Tsys than the truth:
+
+| Interface VSWR | Reported | True |
+|---|---|---|
+| 1.5 | 1160 K | 1740 K |
+| 3.0 | 1160 K | 3480 K |
+
+Use `twoport.as_stages()`, which threads each stage's Γout into the next. → `as_stage` alone
+is for a single part on the bench.
+
 ### Matched terminations are not enough for the three gains to agree
 
 Transducer, available and operating gain are three different numbers. With `Γs = ΓL = 0`:

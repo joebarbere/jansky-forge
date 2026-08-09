@@ -496,25 +496,44 @@ def test_an_oscillating_network_raises_instead_of_returning_negative_power():
         ],
         dtype=complex,
     )
-    with pytest.raises(ValueError, match="oscillating, not amplifying"):
+    with pytest.raises(ValueError, match=r"\|Γout\| = 2\.\d+, so this port returns more"):
         tp.available_gain(s, gamma_source=0.378 + 0.872j)
-    with pytest.raises(ValueError, match="oscillating, not amplifying"):
+    with pytest.raises(ValueError, match=r"\|Γin\| = 1\.\d+, so this port returns more"):
         tp.operating_gain(s, gamma_load=0.75 + 0.4j)
     # And it is perfectly well behaved at a source match that does not provoke it.
     assert tp.available_gain(s, gamma_source=0j) > 0
+
+
+def test_the_instability_message_does_not_accuse_a_cable_of_oscillating():
+    """A measured passive part can read |S22| just over 1 from calibration overshoot.
+
+    Telling someone their cable is oscillating would send them hunting a fault that is in
+    the calibration, so the message offers both readings.
+    """
+    s = np.array([[0.2, 0.9], [0.9, 1.0001]], dtype=complex)
+    with pytest.raises(ValueError, match="calibration overshoot"):
+        tp.available_gain(s)
+
+
+def test_the_gains_reject_a_termination_no_passive_source_could_present():
+    s = tp.attenuator(loss_db=3.0, freq_hz=FREQ).at(MID)
+    with pytest.raises(ValueError, match=r"\|Γs\| = 1\.500"):
+        tp.available_gain(s, gamma_source=1.5 + 0j)
+    with pytest.raises(ValueError, match=r"\|ΓL\| = 1\.000"):
+        tp.operating_gain(s, gamma_load=1.0 + 0j)
 
 
 def test_s_to_y_handles_a_network_whose_z_matrix_does_not_exist():
     """A bare series impedance has a Y matrix and **no** Z matrix.
 
     Its ports carry I1 = −I2, so Z is singular — while Y = [[1/Z, −1/Z], [−1/Z, 1/Z]] is
-    perfectly well defined. Computing Y as `inv(s_to_z(...))` therefore raised LinAlgError on
-    a network whose answer exists. The direct form Y = (1/Z0)(I − S)(I + S)⁻¹ does not.
+    perfectly well defined. Computing Y as `inv(s_to_z(...))` therefore fails on a network
+    whose answer exists, and usually fails *quietly*. The direct form does not.
 
     (The review that found this named a *shunt* element; it is the other way round. A shunt
     element is the case with a Z matrix and no Y. The bug and the fix are unaffected.)
     """
-    z0, series_ohms = 50.0, 100.0
+    z0, series_ohms = 50.0, 200.0
     normalized = series_ohms / z0
     s11 = normalized / (normalized + 2)
     s21 = 2 / (normalized + 2)
@@ -524,9 +543,17 @@ def test_s_to_y_handles_a_network_whose_z_matrix_does_not_exist():
     assert y[0, 0] == pytest.approx(1 / series_ohms, rel=1e-9)
     assert y[0, 1] == pytest.approx(-1 / series_ohms, rel=1e-9)
 
-    # The Z matrix genuinely does not exist, and asking for it still says so.
-    with pytest.raises(np.linalg.LinAlgError):
-        tp.s_to_z(s, z0)
+    # The Z matrix does not exist. Asserting LinAlgError here would pin a floating-point
+    # accident: it raises only at the one ratio where I − S is *exactly* singular. The
+    # robust statement is that Z is singular to working precision.
+    assert np.linalg.cond(tp.s_to_z(s, z0)) > 1e12
+
+    # And the real reason the old route was dangerous: it mostly did not raise at all, it
+    # returned a plausible wrong number. 0.003906 S where the truth is 0.005 S, a 21.9%
+    # error, because an ill-conditioned matrix inverts to something that looks fine.
+    silently_wrong = np.linalg.inv(tp.s_to_z(s, z0))[0, 0]
+    assert abs(silently_wrong) == pytest.approx(0.003906, abs=1e-5)
+    assert abs(abs(silently_wrong) / (1 / series_ohms) - 1) > 0.2
 
 
 def test_the_reader_refuses_other_port_counts_and_parameter_types():
@@ -548,3 +575,86 @@ def test_is_reciprocal_survives_measured_data():
     assert "reciprocal (passive)" in measured.summary()
     # It still catches an actual transpose, which is the point of the check.
     assert not tp.ideal_amplifier(gain_db=20.0, freq_hz=FREQ).is_reciprocal
+
+
+# --------------------------------------------------------------------------------------
+# Fixes from the second review pass, on the first pass's fixes
+# --------------------------------------------------------------------------------------
+
+
+def ideal_transformer(ratio: float, z0: float = 50.0) -> tp.TwoPort:
+    """A lossless, passive, badly-mismatched network: G_A is exactly 1."""
+    s11 = (ratio**2 - 1) / (ratio**2 + 1)
+    s21 = 2 * ratio / (ratio**2 + 1)
+    s = np.array([[[s11, s21], [s21, -s11]]], dtype=complex)
+    return tp.TwoPort(freq_hz=np.array([1.4e9]), s=s, z0_ohm=z0)
+
+
+def test_a_lossless_matching_network_is_not_mistaken_for_an_amplifier():
+    """A regression introduced by the available-gain fix, caught by the second pass.
+
+    G_A of a lossless network is 1, but computing it through |S21|²/(1 − |S22|²) is a
+    cancellation that lands a few ulp either side. With a bare `gain_db > 0` test, whether
+    an ideal matching network was called "an amplifier" came down to the last bit — and an
+    ideal matching network is exactly what an antenna tool puts in a Friis chain.
+    """
+    for ratio in (2.0, 5.0, 0.5):
+        stage = tp.as_stage(ideal_transformer(ratio), 1.4e9)
+        assert stage.gain_db == pytest.approx(0.0, abs=1e-6)
+        assert stage.noise_temp_k == pytest.approx(0.0, abs=1e-6)
+    # A network with real gain is still rejected.
+    with pytest.raises(ValueError, match="not passive"):
+        tp.as_stage(tp.ideal_amplifier(gain_db=1.0, freq_hz=FREQ), MID)
+
+
+def test_as_stages_threads_the_source_match_and_the_default_does_not():
+    """The flattering error: evaluating every stage at Γs = 0 under-reports Tsys.
+
+    Available gain composes multiplicatively only when each stage is evaluated at the source
+    it actually sees. A reactive interstage mismatch breaks that, in the optimistic
+    direction — the tool reports a *lower* system temperature than the truth.
+    """
+    from jansky_forge.sensitivity import cascade_noise_temperature_k
+
+    first = ideal_transformer(1.5)  # lossless, but leaves a mismatched output
+    second = series_resistor(200.0)  # lossy and mismatched
+    exact = tp.as_stage(tp.cascade(first, second), 1.4e9).noise_temp_k
+
+    threaded = cascade_noise_temperature_k(tp.as_stages([first, second], 1.4e9))
+    naive = cascade_noise_temperature_k([tp.as_stage(first, 1.4e9), tp.as_stage(second, 1.4e9)])
+
+    assert threaded == pytest.approx(exact, rel=1e-9)
+    assert naive < exact  # optimistic, which is the dangerous direction
+    assert naive == pytest.approx(1160.0, rel=1e-6)
+    assert exact > 1700.0
+
+
+def test_as_stages_accepts_noise_temperatures_and_names():
+    amp = tp.ideal_amplifier(gain_db=30.0, freq_hz=FREQ)
+    pad = tp.attenuator(loss_db=3.0, freq_hz=FREQ)
+    stages = tp.as_stages([(amp, 21.0), (pad, None)], MID, names=("LNA", "coax"))
+    assert [s.name for s in stages] == ["LNA", "coax"]
+    assert stages[0].noise_temp_k == 21.0
+    assert stages[1].gain_db == pytest.approx(-3.0, abs=1e-9)
+
+
+def test_an_active_stage_takes_its_noise_from_the_file_when_it_has_one():
+    """Fmin is only reached at Γopt. Pinning one datasheet number ignores the source match.
+
+    A vendor's noise block makes the honest number computable, so `as_stage` computes it
+    rather than demanding a hand-supplied constant.
+    """
+    amp = tp.parse_touchstone_2port(AMPLIFIER_S2P)
+    assert amp.noise is not None
+    matched = tp.as_stage(amp, 1.4e9)
+    at_opt = tp.as_stage(amp, 1.4e9, gamma_source=complex(amp.noise.gamma_opt[1]))
+    assert at_opt.noise_temp_k < matched.noise_temp_k  # Γopt is the best noise match
+    assert matched.noise_temp_k == pytest.approx(48.1, abs=0.5)
+    assert at_opt.noise_temp_k == pytest.approx(22.2, abs=0.5)
+    # An explicit value still wins over the file.
+    assert tp.as_stage(amp, 1.4e9, noise_temp_k=5.0).noise_temp_k == 5.0
+
+
+def test_an_active_network_without_noise_data_still_refuses_to_guess():
+    with pytest.raises(ValueError, match="not passive"):
+        tp.as_stage(tp.ideal_amplifier(gain_db=20.0, freq_hz=FREQ), MID)

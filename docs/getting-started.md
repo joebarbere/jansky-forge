@@ -217,14 +217,20 @@ Chain it, and hand the result to M4's noise budget:
 from jansky_forge import sensitivity as sens
 
 pigtail = twoport.attenuator(loss_db=0.2, freq_hz=amp.freq_hz)
-chain = twoport.cascade(pigtail, amp)                       # S-parameters cascade here...
-receiver_k = sens.cascade_noise_temperature_k([             # ...noise cascades in Friis, there
-    twoport.as_stage(pigtail, 1.4204e9),                    # passive: noise comes from its loss
-    twoport.as_stage(amp, 1.4204e9, noise_temp_k=21.0),     # active: you must supply it
-])
+chain = twoport.cascade(pigtail, amp)                  # S-parameters cascade here...
+receiver_k = sens.cascade_noise_temperature_k(         # ...noise cascades in Friis, there
+    twoport.as_stages([pigtail, amp], 1.4204e9, names=("pigtail", "LNA")),
+)
 ```
 
-`receiver_k` is the **receiver** alone — 35.7 K for that pair. It is not Tsys; feed it to
+**Use `as_stages` for a chain, not `as_stage` in a loop.** Available gain depends on the
+source a stage actually sees — the previous stage's Γout, not 50 Ω — and `as_stages` threads
+it. Evaluating each stage in isolation is **optimistic**: 1.76 dB at a VSWR 1.5 interface,
+4.8 dB at VSWR 3, always reporting a lower system temperature than the truth.
+
+`receiver_k` is the **receiver** alone — 64.8 K for that pair, with the amplifier's noise
+figure taken from its own noise block at the source match the pigtail actually presents. It
+is not Tsys; feed it to
 `system_temperature()` with the sky and your spillover efficiency to get that. Confusing the
 two flatters the answer, because the terms you left out are the warm ones.
 

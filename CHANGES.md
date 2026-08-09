@@ -59,6 +59,51 @@ confusion the module exists to prevent.
 - `scikit-rf` reads the same `.s2p` and agrees on every S-parameter, **including which index
   S21 lands in**. CI installs the extra so this runs rather than skips.
 
+### A second review pass, on the first pass's fixes
+The fixes below were themselves reviewed. Two central ones — available gain in `as_stage`,
+and the direct-form `s_to_y` — were confirmed correct (the latter to 4e-16 against
+`scikit-rf` across nine networks and three reference impedances, checked against both a
+transpose and a sign flip). The pass found one **regression introduced by the fix**, one
+docstring stated backwards, and one API that was misleading by default:
+
+- **Regression: `as_stage` rejected lossless passive networks.** Computing G_A through
+  `|S21|²/(1 − |S22|²)` is a cancellation, so an ideal transformer or lossless matching
+  section lands a few ulp either side of unity — and a bare `gain_db > 0` test then called
+  it an amplifier, with the self-contradictory message *"this network has +0.0 dB of gain,
+  so it is not passive"*. Whether an ideal matching network worked came down to the last
+  bit. Now tolerant, and a matching section is exactly what an antenna tool puts in a chain.
+- **`as_stages()` — a chain helper, because the default was quietly optimistic.** Available
+  gain composes multiplicatively only when each stage is evaluated at the source it actually
+  sees. Evaluating each in isolation at Γs = 0 under-reports system temperature by **1.76 dB
+  at a VSWR 1.5 interface and 4.8 dB at VSWR 3** — reporting a *lower* Tsys than the truth,
+  which is wrong in the one direction that matters. A docstring warning was not an adequate
+  answer to that, since a user cannot know they should care without doing the calculation
+  the tool exists to do. `as_stages` threads Γout, and reproduces the exact
+  cascaded-S-matrix answer to 1e-9.
+- **`as_stage` now derives an active stage's noise from the file's noise block** when it has
+  one. Fmin is only achieved at Γopt, so pinning a single datasheet number ignores the
+  source match — 48.1 K at a matched source versus 22.2 K at Γopt for the test part.
+- **The `s_to_y` docstring had series and shunt backwards.** A *series* element is the one
+  with a Y matrix and no Z; a shunt element is the mirror case, and the new code correctly
+  raises on it. The better argument for the fix also emerged: the old route mostly did not
+  raise at all, it returned a plausible wrong number — 0.003906 S where the truth is 0.005 S,
+  a **21.9% error with no exception**, because an ill-conditioned matrix inverts to something
+  that looks fine. The test previously asserted `LinAlgError`, which only occurs at the one
+  ratio where `I − S` is *exactly* singular; it now asserts the conditioning instead of
+  pinning a floating-point accident.
+- **The instability message no longer accuses a cable of oscillating.** A measured passive
+  `.s2p` can show `|S22| = 1.0001` from ordinary calibration overshoot near total reflection,
+  and the previous wording would have sent someone hunting a fault that is in the calibration.
+- `available_gain` and `operating_gain` now reject `|Γ| ≥ 1` terminations, as
+  `noise_figure_db` already did — `gamma_source=1.0` silently returned `+0.000000 dB`.
+- Removed the `z0_ohm` override on `noise_figure_db`. `Rn` is stored in ohms and only the
+  file's own Z0 is ever correct, so the parameter could only reinstate the bug just fixed.
+
+Confirmed clean by that pass, with no changes needed: the `|Γout| ≥ 1` guard (zero false
+trips across 90 000 passive networks and terminations), the noise-parameter Z0 handling
+(0 to 8e-16 dB against `scikit-rf` at 50 Ω and 75 Ω), and parser strictness (16 `.s2p` and
+11 `.s1p` variants including CRLF, inline comments and NanoVNA output all still read).
+
 ### Fixed after an independent RF review
 An adversarial review of the two-port math (Pozar/Gonzalez, cross-checked numerically against
 `scikit-rf` with complex, non-reciprocal, mismatched networks) confirmed the three gains, all

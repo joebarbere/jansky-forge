@@ -512,7 +512,7 @@ def _print_network(args: argparse.Namespace) -> None:
         print(f"    Fmin        {noise.fmin_db[index]:8.2f} dB")
         print(f"    Gamma_opt   {abs(opt):8.4f} @ {math.degrees(cmath.phase(opt)):+8.2f} deg")
         print(f"    Rn          {noise.rn_ohm[index]:8.2f} ohm")
-        matched = noise.noise_figure_db(0j, float(noise.freq_hz[index]), network.z0_ohm)
+        matched = noise.noise_figure_db(0j, float(noise.freq_hz[index]))
         print(f"    NF at a matched (50 ohm) source: {matched:.2f} dB")
         print(
             "    - a matched source is NOT the best noise match; the penalty above is the "

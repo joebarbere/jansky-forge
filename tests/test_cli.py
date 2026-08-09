@@ -485,4 +485,5 @@ def test_network_diagnoses_an_unstable_device_instead_of_crashing(tmp_path, caps
     out = capsys.readouterr().out
     assert "transducer" in out and "+9.5" in out  # this one is still defined
     assert out.count("undefined") == 2  # available and operating are not
-    assert "oscillating, not amplifying" in out
+    assert "returns more power than it receives" in out
+    assert "N1's stability circles" in out

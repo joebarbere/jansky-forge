@@ -165,10 +165,10 @@ from jansky_forge import twoport, sensitivity as sens
 
 amp = twoport.read_touchstone_2port("lna.s2p")
 pigtail = twoport.attenuator(loss_db=0.2, freq_hz=amp.freq_hz)
-receiver_k = sens.cascade_noise_temperature_k([
-    twoport.as_stage(pigtail, 1.4204e9),                 # passive: noise from its loss
-    twoport.as_stage(amp, 1.4204e9, noise_temp_k=21.0),  # active: you must supply it
-])
+# as_stages threads each stage's real source match. Doing it stage by stage is optimistic.
+receiver_k = sens.cascade_noise_temperature_k(
+    twoport.as_stages([pigtail, amp], 1.4204e9, names=("pigtail", "LNA")),
+)
 tsys = sens.system_temperature(freq_hz=1.4204e9, receiver_k=receiver_k,
                                spillover_efficiency=0.93)
 print(tsys.summary())      # says which term dominates -- that is the one to fix
