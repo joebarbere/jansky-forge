@@ -14,6 +14,7 @@ $ jansky-forge design --gain-dbi 18         # what should I build for 18 dBi?
 $ jansky-forge fabricate --gain-dbi 18 --out ./horn   # ...and how do I cut it?
 $ jansky-forge feed --f-over-d 0.35         # what feed does my dish want?
 $ jansky-forge probe --waveguide wr650      # where does the probe go?
+$ jansky-forge sensitivity --template discovery-dish --brightness-k 100   # will I see it?
 ```
 
 ## Why this exists
@@ -109,6 +110,16 @@ The same standard as the sibling repos, applied to hardware:
   error are separate named terms because each is a different thing to *fix* in a real build.
 
 ## Status
+
+**M4 (`v0.5.0`) — sensitivity.** Antenna numbers become telescope numbers: system
+temperature as a budget you can act on, SEFD, G/T, the radiometer equation, time-to-detect,
+and "how big a dish do I need?" solved backwards.
+
+The asymmetry it exists to get right: **gain is not sensitivity**. A bigger dish collects
+more from a point source, but galactic HI fills the beam, and a beam-filling source gives
+the same antenna temperature at *any* aperture. A 0.9 m horn and a 30 m dish see the same
+~100 K line. Applying the point-source formula to HI is the most flattering mistake
+available, so the tool routes by source type and says which formula it used.
 
 **M3 (`v0.4.0`) — dish and feed system.** Efficiency stops being a number you type in. Give
 a dish a feed and it computes illumination, spillover, and edge taper, and tells you which

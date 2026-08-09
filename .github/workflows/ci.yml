@@ -35,6 +35,22 @@ jobs:
         run: uv run mypy
       - name: Test + coverage floor
         run: uv run pytest --cov=jansky_forge --cov-report=term-missing
+      # The sibling course also implements the radiometer equation. jansky is not a
+      # dependency here (this package stays installable on its own), but a second
+      # implementation that nobody compares is a second implementation that drifts — so
+      # CI checks the course out and runs the cross-check for real instead of skipping it.
+      - name: Checkout the jansky course (for the radiometer cross-check)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/checkout@v4
+        with:
+          repository: joebarbere/jansky
+          path: jansky-course
+      - name: Cross-check against the course's radiometer equation
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          uv pip install ./jansky-course
+          uv run pytest tests/test_sensitivity.py -k course_cross_check -v
+          uv pip uninstall jansky
       # The catalog's honesty rules are executable: any entry missing a source URL or
       # missing caveats on non-primary provenance fails the build.
       - name: Catalog provenance audit

@@ -296,3 +296,73 @@ def test_probe_reproduces_the_published_build_from_the_command_line(capsys):
 def test_probe_refuses_a_waveguide_below_cutoff():
     with pytest.raises(ValueError, match="below this waveguide"):
         cli.main(["probe", "--waveguide", "50x25"])
+
+
+# --------------------------------------------------------------------------------------
+# M4: the sensitivity subcommand
+# --------------------------------------------------------------------------------------
+
+
+def test_sensitivity_from_a_catalog_template(capsys):
+    assert cli.main(["sensitivity", "--template", "discovery-dish"]) == 0
+    out = capsys.readouterr().out
+    assert "Discovery Dish" in out
+    assert "Tsys" in out and "dominated by" in out
+    assert "SEFD" in out and "G/T" in out and "K/Jy" in out
+    assert "ideal" in out and "feed (M3)" in out  # it fed the dish sensibly by default
+    assert "not a measurement" in out
+
+
+def test_sensitivity_from_an_arbitrary_dish_with_a_point_source(capsys):
+    assert (
+        cli.main(
+            [
+                "sensitivity",
+                "--diameter-m",
+                "3.0",
+                "--f-over-d",
+                "0.4",
+                "--flux-jy",
+                "1900",
+                "--integration-s",
+                "600",
+            ]
+        )
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "1900 Jy point source" in out
+    assert "time to SNR 5" in out
+
+
+def test_sensitivity_routes_extended_sources_correctly(capsys):
+    """The CLI must not let the point-source formula flatter an HI estimate."""
+    assert cli.main(["sensitivity", "--template", "discovery-dish", "--brightness-k", "100"]) == 0
+    out = capsys.readouterr().out
+    assert "100 K extended emission" in out
+    assert "does NOT improve with a bigger aperture" in out
+    assert "baseline stability" in out
+    # A vast thermal SNR is reported as "not your limitation", not as a promise.
+    assert "thermal noise is not your limitation" in out
+
+
+def test_sensitivity_needs_an_antenna():
+    with pytest.raises(SystemExit, match="either --template or --diameter-m"):
+        cli.main(["sensitivity"])
+
+
+def test_sensitivity_refuses_a_horn_template():
+    with pytest.raises(SystemExit, match="needs a dish"):
+        cli.main(["sensitivity", "--template", "bharat-horn"])
+
+
+def test_a_worse_lna_raises_tsys(capsys):
+    assert cli.main(["sensitivity", "--diameter-m", "1.0", "--lna-nf-db", "0.3"]) == 0
+    good = capsys.readouterr().out
+    assert cli.main(["sensitivity", "--diameter-m", "1.0", "--lna-nf-db", "3.0"]) == 0
+    bad = capsys.readouterr().out
+
+    def tsys_of(text):
+        return float(text.split("Tsys ")[1].split(" K")[0])
+
+    assert tsys_of(bad) > tsys_of(good) + 100
