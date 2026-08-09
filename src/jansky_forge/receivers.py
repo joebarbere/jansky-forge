@@ -364,16 +364,18 @@ _register(
         quoted_at_hz=1_420e6,
         availability=Availability.AMATEUR,
         claim=Claim.DATASHEET,
-        source_url="https://www.nooelec.com/store/downloads/dl/file/id/97/product/322/sawbird_h1_datasheet_revision_1.pdf",
+        source_url="https://www.nooelec.com/store/sawbird-h1.html",
         year=2019,
         caveats=(
             "The 65 MHz 3 dB bandwidth is the SAW filter, and it is the reason to buy this "
             "part rather than a bare LNA: it rejects the strong out-of-band signals that "
             "would otherwise compress everything downstream. It also means the module is "
             "useless for any other line.",
-            "The Barebones variant is 1.05 dB, not 0.8 dB — an RF switch terminated in 50 Ω "
-            "sits ahead of the first stage. That is 20 K of difference at the front of the "
-            "chain, where it counts fully.",
+            "The Barebones variant is 1.05 dB, not 0.8 dB — a 50 Ω reference sits ahead of "
+            "the first stage. That is 20 K of difference at the front of the chain, where it "
+            "counts fully.",
+            "40 dB is the datasheet *minimum* gain, so this entry is conservative in the "
+            "direction that matters for a Friis cascade.",
         ),
     )
 )
@@ -549,6 +551,8 @@ _register(
         claim=Claim.COMMUNITY,
         source_url="https://rfessentials.com/rf-knowledge-base/what-is-the-allan-deviation-and-how-does-it-relate-to-phase-noise-and-frequency-/",
         caveats=(
+            "Representative of the technology class, not a datasheet for a specific unit. Individual "
+            "products vary by an order of magnitude; check yours before trusting a comparison.",
             "Its accuracy (~1 ppm) is far worse than its stability, and accuracy is what "
             "sets a spectral line's apparent velocity. 1 ppm at 1420 MHz is 1.4 kHz, about "
             "0.3 km/s — real, and small next to a 20 km/s HI linewidth.",
@@ -567,6 +571,8 @@ _register(
         claim=Claim.COMMUNITY,
         source_url="https://rfessentials.com/rf-knowledge-base/what-is-the-allan-deviation-and-how-does-it-relate-to-phase-noise-and-frequency-/",
         caveats=(
+            "Representative of the technology class, not a datasheet for a specific unit. Individual "
+            "products vary by an order of magnitude; check yours before trusting a comparison.",
             "Better short-term stability than a rubidium standard, and worse long-term. That "
             "inversion surprises people who assume 'atomic' means better everywhere.",
         ),
@@ -584,6 +590,8 @@ _register(
         claim=Claim.COMMUNITY,
         source_url="https://dantalion.nl/2024/02/09/gps-disciplined-oscillator.html",
         caveats=(
+            "Representative of the technology class, not a datasheet for a specific unit. Individual "
+            "products vary by an order of magnitude; check yours before trusting a comparison.",
             "Short-term stability is its OCXO's, not GPS's — the discipline loop is slow on "
             "purpose. What GPS buys is long-term accuracy and the absence of drift.",
             "It needs sky view. A GPSDO in a basement is an undisciplined OCXO with a warning "
@@ -603,6 +611,8 @@ _register(
         claim=Claim.COMMUNITY,
         source_url="http://www.ke5fx.com/rb.htm",
         caveats=(
+            "Representative of the technology class, not a datasheet for a specific unit. Individual "
+            "products vary by an order of magnitude; check yours before trusting a comparison.",
             "Surplus telecom rubidiums are cheap and genuinely good, which is why they are "
             "common in amateur shacks. Check the lamp hours.",
         ),
@@ -620,6 +630,8 @@ _register(
         claim=Claim.COMMUNITY,
         source_url="https://www.xtaltq.com/ocxo-vs-rubidium-oscillator-vs-gps-disciplined-oscillator-vs-hydrogen-maser-complete-comparison-guide.html",
         caveats=(
+            "Representative of the technology class, not a datasheet for a specific unit. Individual "
+            "products vary by an order of magnitude; check yours before trusting a comparison.",
             "The VLBI standard, and the reason VLBI is expensive. Each station needs one, "
             "because coherence across a baseline is limited by the worse of the two.",
         ),

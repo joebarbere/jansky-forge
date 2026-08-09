@@ -122,6 +122,29 @@ Things found to be wrong *in the literature or the community*, not in this code:
 
 ---
 
+## Sources opened, not just cited (N4)
+
+After the cryogenic entry turned out to be misattributed, every load-bearing catalogue figure
+was checked by **opening its source** rather than trusting a search summary:
+
+| Entry | Source opened | Agrees? |
+|---|---|---|
+| SAWbird+ H1 | [Nooelec product page](https://www.nooelec.com/store/sawbird-h1.html) | ✅ 0.8 dB standard / 1.05 dB Barebones, ≥40 dB, 65 MHz at 1.42 GHz |
+| QPL9547 | [datasheet listing](https://www.rfglobalnet.com/doc/ghz-ultra-low-noise-lna-qpl9547-datasheet-0001) | ✅ 0.3 dB NF, 19.5 dB gain **at 1.9 GHz**, 0.1-6.0 GHz |
+| Cryogenic InP HEMT | [Chalmers 2018](https://research.chalmers.se/en/publication/520245) | ✅ 3.5 K average, 0.3-14 GHz — after correcting a wrong citation |
+| NRAO 1980 / 2003 | [NRAO CDL](https://science.nrao.edu/facilities/cdl/low-noise-amplifiers) | ✅ 25 K at 4.5 GHz, 2 K at 4 GHz |
+
+**Not opened, and labelled accordingly:** the clock entries are order-of-magnitude figures for
+a *technology class*, not a specific product, and every one of them now says so in its own
+caveats. Digitizer entries carry vendor headline specs; their bit depths and tuning ranges are
+uncontroversial and their noise figures are deliberately absent rather than guessed.
+
+The datasheet PDFs for the SAWbird and the QPL9547 would not render as text, which is why the
+catalogue links the readable product/listing pages instead — a source a reader cannot open is
+not doing its job.
+
+---
+
 ## Verification that runs in CI
 
 Not a one-off check — these execute on every push, with the optional dependency installed so
