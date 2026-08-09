@@ -69,11 +69,14 @@ say *"your system is receiver-limited"* and had nothing to offer next.
 **N0 has shipped** (`v0.11.0`): two-port Touchstone, S↔Z↔Y↔ABCD, the three gain definitions,
 cascade, and the seam back to M4's noise budget.
 
-**N1 — stability is next**, and is the highest-value single milestone in the track. Rollett's
-K and Δ, the μ-factor, and stability circles. An unstable amplifier oscillates, and the
-symptom is a weekend of confusion — strange noise floors, spurs, behaviour that changes when
-you touch the case. The check is cheap and the anchor is clean (Pozar ch. 12), which is why
-it goes before noise rather than after.
+**N1 has shipped** (`v0.12.0`): K, Δ, μ, stability circles, MSG/MAG, and an automatic check
+on any active device the tool reads. Anchored on Pozar Ex 12.1 and verified against the
+definition of stability rather than another formula.
+
+**N4 is now the next one worth doing** — it is the milestone the track exists for, and N0+N1
+are its prerequisites. N2 and N3 (noise circles, matching synthesis) sit between them in the
+plan's numbering but not in value: they are for building an amplifier from a bare transistor,
+which most people should not do. Skipping to N4 is the recommended path.
 
 **The track's recommended stopping point is N0 + N1 + N4** — read any vendor `.s2p`, know
 whether the part is stable, and answer *"does a better LNA help my actual system?"* against

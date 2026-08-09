@@ -45,7 +45,7 @@ import cmath
 import math
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -320,7 +320,7 @@ def parse_touchstone_2port(text: str, *, source: str = "") -> TwoPort:
             z0_ohm=z0,
         )
 
-    return TwoPort(
+    network = TwoPort(
         freq_hz=np.asarray(freqs, dtype=float),
         s=np.asarray(matrices, dtype=complex),
         z0_ohm=z0,
@@ -328,6 +328,17 @@ def parse_touchstone_2port(text: str, *, source: str = "") -> TwoPort:
         source=source,
         notes=tuple(comments[:8]),
     )
+
+    # N1: any active device the tool reads gets its stability checked, the way realizability
+    # runs on any pyramidal horn. Imported here rather than at module scope because stability
+    # is written in terms of TwoPort. The check is microseconds and the failure it catches is
+    # a weekend of confusion, so it is not optional and there is no flag to turn it off.
+    from jansky_forge.stability import stability_notes
+
+    warnings = stability_notes(network)
+    if warnings:
+        network = replace(network, notes=(*network.notes, *warnings))
+    return network
 
 
 def read_touchstone_2port(path: str | Path) -> TwoPort:

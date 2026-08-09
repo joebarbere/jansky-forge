@@ -45,7 +45,8 @@ build. → [Next steps](next-steps.md)
 
 A second, independent **receiver track** (N0–N5) is now underway, planned in
 [`plans/receivers.md`](../plans/receivers.md). It closes the gap M4 opened: the tool can say
-*"your system is receiver-limited"* and could not say what to do about it. N0 has shipped;
+*"your system is receiver-limited"* and could not say what to do about it. N0 and N1 have
+shipped;
 the milestone the track exists for is **N4**, which answers *"would a better LNA actually
 help, or is spillover my problem?"* against your own antenna. It does **not** move v1.0.0 —
 that gate is still a build.
@@ -68,4 +69,5 @@ that gate is still a build.
 | `measure` | M7 | Touchstone, reference plane, matching, comparison |
 | `onsky` | M8 | Y-factor, drift scans, transit efficiency, bundle ingest |
 | `server/` | M9 | The web UI |
+| `stability` | N1 | K, Δ, μ, stability circles, MSG/MAG |
 | `twoport` | N0 | Two-port networks: `.s2p`, S↔Z↔Y↔ABCD, the three gains, cascade |

@@ -123,6 +123,11 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
   - `server/` — M9, the optional web UI: `app.py` (routes), `templates.py` (markup as
     strings — no Jinja2, no CDN), `plots.py` (server-rendered SVG). **The UI must display a
     model's caveats**; tests enforce it.
+  - `stability.py` — N1: Rollett K and Δ, the μ factors, source/load stability circles with
+    **which side is safe**, MSG and MAG. `stability_notes()` is wired into
+    `parse_touchstone_2port`, so **the check runs on any active device the tool reads** — the
+    analogue of realizability on a pyramidal horn, and there is no flag to disable it.
+    `max_available_gain_db` **raises** for K ≤ 1 rather than falling back to MSG.
   - `twoport.py` — N0, the receiver track's vocabulary: `TwoPort`, native `.s2p` reading
     **including the noise block**, S↔Z↔Y↔ABCD, the three gain definitions, and `cascade`.
     `as_stage()` hands a network to M4's Friis chain. **Touchstone two-port ordering is
@@ -169,6 +174,7 @@ publish when the tag disagrees with any of them.
 | `v0.9.0` | M8 — On-sky characterization (Y-factor, beam maps, transit SEFD) |
 | `v0.10.0` | M9 — Interactive UI (FastAPI + htmx + canvas) |
 | `v0.11.0` | **N0 — Two-port foundations** (receiver track) |
+| `v0.12.0` | **N1 — Stability** (receiver track) |
 | `v1.0.0` | **Not a feature** — tagged after one antenna is designed here, built from this tool's fabrication output, and measured back in |
 
 **Tags are allocated in the order milestones actually ship, not reserved in advance.** The
@@ -184,7 +190,7 @@ environment, reports, an MCP surface) are unshipped and unnumbered; see
 | Track | Plan | State |
 |---|---|---|
 | Antenna (M0–M9) | `plans/jansky_forge.md` | Complete. Remaining ideas are unnumbered |
-| Receiver (N0–N5) | `plans/receivers.md` | N0 shipped. **N1 (stability) is next** |
+| Receiver (N0–N5) | `plans/receivers.md` | N0, N1 shipped. **N4 is the one worth doing next** |
 
 Neither track moves the `v1.0.0` gate, which is a build.
 
@@ -234,6 +240,26 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 `rf-measurement-analyst` (M7) — see plan §7.
 
 ## Current status
+
+**N1 shipped — `v0.12.0` is released** (2026-08-09). Stability, and the check now runs
+automatically on any active device the tool reads.
+
+The milestone's method is worth copying: the textbook anchor (Pozar Ex 12.1) confirmed the
+numbers, but the *stronger* verification was against the **definition** — unconditional
+stability means `|Γin| < 1` for every passive load, which is checkable by brute force. K, μ
+and that sweep agree on 4000 random networks, and `|Γin|` is exactly 1.000000000 at 500
+points around the stability circle. When a quantity has a definition you can evaluate, check
+against that rather than against another formula.
+
+Writing those tests found a trap worth keeping: **a Smith-chart sweep can step straight over
+an unstable region.** Some devices have an unstable patch a few thousandths across, well
+inside the passive disk; a 600 × 600 grid misses it and declares the part safe. Sampling can
+only miss an unstable region, never invent one — so a clean sweep is weak evidence.
+
+**N4 is the next one worth doing**, not N2. N4 is the milestone the track exists for
+("would a better LNA help, or is spillover my problem?"), N0+N1 are its prerequisites, and
+N2/N3 are for building an amplifier from a bare transistor — which most people should not do.
+The plan's numbering is not its value ordering, and `plans/receivers.md` says so.
 
 **N0 shipped — `v0.11.0` is released** (2026-08-09). The receiver track has started, and the
 tool can now read a vendor's `.s2p` with NumPy alone, name the three gains separately instead

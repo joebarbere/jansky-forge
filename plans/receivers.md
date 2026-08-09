@@ -62,7 +62,7 @@ the antenna track — this is one package.
 | Tag | Milestone | What the release means |
 |---|---|---|
 | `v0.11.0` ✅ | **N0 — Two-port foundations** | `.s2p` reading with noise data, S↔Z↔Y↔ABCD, the three gain definitions, two-port cascade. The vocabulary everything else is written in |
-| `v0.12.0` | **N1 — Stability** | Rollett K and Δ, the μ-factor, stability circles, unconditional vs conditional. **The highest-value single milestone** |
+| `v0.12.0` ✅ | **N1 — Stability** | Rollett K and Δ, the μ-factor, stability circles, unconditional vs conditional. **The highest-value single milestone** |
 | `v0.13.0` | **N2 — Noise** | The noise-parameter model, noise circles, and the noise-versus-gain match tradeoff that *is* LNA design |
 | `v0.14.0` | **N3 — Matching and the design loop** | Input matched toward Γopt, output conjugate; resulting F, gain and stability reported together |
 | `v0.15.0` | **N4 — System integration** | **The point of the track.** This LNA + this feed + this cable → Tsys. "Would a better LNA help?" answered against a real antenna |
@@ -106,6 +106,12 @@ because it is harder than noise.
   realizability runs on any pyramidal horn.
 
 **Anchor:** Pozar, *Microwave Engineering*, ch. 12 worked example.
+
+**Shipped as `v0.12.0`**, all of the above, plus MSG/MAG and a `StabilityReport` that names
+the worst frequency rather than the design one. Two things learned: verification against the
+*definition* (brute-force sweep of the passive disk) is stronger than the textbook anchor and
+caught more; and a sweep **can miss a small unstable region entirely**, which is the concrete
+argument for the closed-form circles.
 
 ### N2 — Noise
 

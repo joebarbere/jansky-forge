@@ -156,6 +156,47 @@ two-port files only. Reading a `.s2p` the obvious way transposes the device:
 Smoke alarm: `TwoPort.is_reciprocal`. An amplifier that reads reciprocal has almost certainly
 been read wrong.
 
+### `|S21| > 1` is not the test for "is this thing active"
+
+A **lossless filter in front of an unstable amplifier** leaves K, μ and the unstable loads
+exactly where they were while pushing `|S21|` far below 1. A filtered LNA module can read
+like a lossy passive part by transmission alone and still oscillate into ordinary loads.
+
+Activity can also live entirely in the reflection coefficients: `|S11| = 1.6` with
+`|S21| = 0.5` is a negative-resistance stage with μ = −1.9.
+
+The test for passivity is **σmax(S) ≤ 1** — the largest singular value. That is
+`stability.is_passive()`, and it is what the tool gates on.
+
+### "I swept it and it looked fine" is not a stability proof
+
+Some devices have an unstable region a few **thousandths** of a Smith chart across, sitting
+well inside the passive disk. A uniform 600 × 600 sweep — 360 000 terminations — steps
+straight over it and reports the device safe, while `|Γin|` on that tiny circle is exactly 1.
+
+Use the closed-form stability circles. Sampling can only miss an unstable region; it can
+never invent one, so a clean sweep is weak evidence and a dirty one is proof.
+
+### K > 1 is not the stability criterion
+
+`K > 1` **and** `|Δ| < 1`, together. K alone is the classic misuse. Better still, use `μ`:
+one number, `μ > 1` is exactly unconditional stability, and unlike K it is **comparable** —
+of two devices the larger μ is more stable, and μ is literally the distance into the Smith
+chart before you find a load that oscillates.
+
+### MAG does not exist below K = 1
+
+Maximum available gain is defined only for an unconditionally stable device. For `K < 1` the
+relevant ceiling is MSG = `|S21/S12|`, and it applies only *after* the part has been
+stabilised. Quoting MSG as if it were MAG is how a potentially unstable part gets a link
+budget it cannot hold. `max_available_gain_db` raises rather than substituting.
+
+### Check stability across the whole file, not at your frequency
+
+A transistor has the most gain **below** the band you want to use it in, so the frequency
+where it oscillates is usually one you were not thinking about. Worse, the vendor's sweep
+often does not extend there at all — in which case the tool's silence is not reassurance.
+
 ### Friis wants **available** gain, not insertion loss
 
 A passive network at 290 K has `F = 1/G_A`. `G_A` is the **available** gain, which is

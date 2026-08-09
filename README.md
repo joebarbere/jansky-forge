@@ -125,6 +125,20 @@ Also: [rules of thumb](docs/rules-of-thumb.md) (numbers with their validity cond
 
 ## Status
 
+**N1 (`v0.12.0`) — stability.** Will it oscillate? Rollett's K and Δ, the μ factor, and
+source/load stability circles that say **which terminations to avoid** rather than just that
+a problem exists. The check runs automatically on any active device the tool reads — an
+unstable amplifier is a weekend of confusion blamed on everything except the amplifier.
+
+Verified against the *definition* rather than a formula: unconditional stability means
+`|Γin| < 1` for every passive load, which is checkable by brute force, and K, μ and the sweep
+agree on 4000 random networks. Reproduces Pozar Example 12.1 (K = 0.607, |Δ| = 0.696) and
+both its stability circles.
+
+It also encodes a trap found while testing: **a Smith-chart sweep can step straight over an
+unstable region** a few thousandths across. 360 000 sample points, device declared safe,
+`|Γin|` exactly 1 on a circle the grid missed.
+
 **N0 (`v0.11.0`) — two-port foundations.** The start of the
 [receiver track](plans/receivers.md): read a vendor's `.s2p`, including its noise block, with
 NumPy alone. `TwoPort`, S↔Z↔Y↔ABCD, the three gain definitions that are routinely confused,
