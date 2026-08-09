@@ -89,7 +89,12 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
     axial/slant symbol distinction caused a real 7% bug.
   - `catalog.py` — `Template`, `Provenance`, `register`/`get`/`find`/`all_templates`, and
     `audit()` (the executable form of honesty invariant 3).
-  - `cli.py` — `bands`, `list`, `show`, `characterize`.
+  - `fabricate/` — M2, the build leg: `geometry.py` (exact flat developments — the panel
+    and sector shapes every other module consumes), `svg.py` (tiled 1:1 templates; **every
+    sheet carries a 100 mm ruler and that is not optional**), `dxf.py` (R12, cut/fold
+    layers, true arcs), `cutlist.py` (kerf, material budget, BOM with reasons),
+    `packet.py` (writes the whole folder, including `design.json` provenance).
+  - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`.
 - `tests/` — pure, offline, no hardware and no network, ever. Golden values carry their
   arithmetic in a comment so a reader can check rather than trust.
 - `plans/jansky_forge.md` — the full plan: survey, tiers, all fifteen milestones, testing
@@ -145,6 +150,9 @@ Use `/release`; never tag by hand.
   classic unit bugs (10 vs 20·log10, mm vs m, degrees vs radians, the 4π, diameter vs radius),
   formula provenance, whether validity notes actually fire, and whether any efficiency was
   tuned to match a published figure.
+- `/fabrication-packet` — produce and **pre-flight** a fabrication packet: sheet count,
+  stock fit, kerf double-compensation, and realizability, before anyone prints 40 pages.
+  It is explicitly forbidden from adjusting dimensions to make parts fit stock.
 - `/simple-english` — **vendored third party** (MIT, AminBlg/SimpleEnglish, pinned commit in
   `.claude/skills/simple-english/VENDORED.md`). Writes or checks prose against ASD-STE100
   Simplified Technical English: 20-word procedural / 25-word descriptive sentences, one word
@@ -170,7 +178,22 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M1 shipped — `v0.2.0` is released** (2026-08-08). Horns became physics: exact aperture
+**M2 shipped — `v0.3.0` is released** (2026-08-08). A design now becomes cut metal:
+exact flat developments for both horn types, 1:1 tiled SVG templates, DXF, cut list with an
+honest kerf budget, assembly checklist, and `design.json` provenance.
+`jansky-forge fabricate --gain-dbi 18 --out ./horn` writes the lot.
+
+Two M2 rules that must survive future edits: **the 100 mm ruler on every sheet is not
+decoration** (it is the only defence against a "fit to page" print, which is invisible until
+the metal is cut and wrong), and **kerf is reported, never silently applied** to anybody's
+dimensions. `/fabrication-packet` carries the pre-flight.
+
+**M3 (dish and feed system) is next** — f/D, edge taper, spillover, and feed selection as a
+solved system rather than assumed constants. It also picks up the two gaps M1 and M2 leave:
+conical *patterns* (still rules of thumb), and the probe/backshort design a horn needs
+before it is an antenna rather than a shaped piece of metal.
+
+**M1 shipped — `v0.2.0` was released** (2026-08-08). Horns became physics: exact aperture
 phase error, synthesis in both directions, realizability, and aperture-integrated patterns.
 Verified against Balanis Examples 13.5 and 13.6. It found two real things — a 7% geometry
 bug in our own first attempt (see invariant 7), and that the catalog's worked example is not
