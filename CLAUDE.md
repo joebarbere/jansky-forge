@@ -94,6 +94,10 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
   arithmetic in a comment so a reader can check rather than trust.
 - `plans/jansky_forge.md` — the full plan: survey, tiers, all fifteen milestones, testing
   strategy, cross-repo contracts, open questions.
+- `.claude/skills/` — our own skills, plus `simple-english/`, which is vendored from a third
+  party and pinned to a commit (`VENDORED.md` records the provenance and how to update).
+  Vendored rather than installed with `npx skills add` so a reviewer can see what the agent
+  was told; install it globally too if you want it outside this repo.
 - `.github/workflows/` — `ci.yml` (three-OS matrix: cross-platform is a promise, so it is a
   matrix), `release.yml` (the release gate + tag/version consistency check).
 
@@ -141,6 +145,25 @@ Use `/release`; never tag by hand.
   classic unit bugs (10 vs 20·log10, mm vs m, degrees vs radians, the 4π, diameter vs radius),
   formula provenance, whether validity notes actually fire, and whether any efficiency was
   tuned to match a published figure.
+- `/simple-english` — **vendored third party** (MIT, AminBlg/SimpleEnglish, pinned commit in
+  `.claude/skills/simple-english/VENDORED.md`). Writes or checks prose against ASD-STE100
+  Simplified Technical English: 20-word procedural / 25-word descriptive sentences, one word
+  one meaning, active voice, condition before command. Use it for **reader-facing prose** —
+  README, install and build instructions, guide text, release notes, error messages, and
+  future M2 fabrication instructions, where a builder with a sheet of aluminium and a saw
+  should not have to read a sentence twice.
+
+  **Where it does not apply, and why.** Do not run it over model `notes`, catalog `caveats`,
+  docstrings that state validity limits, or anything covered by the honesty invariants above.
+  STE restricts exactly the words that carry calibrated uncertainty — "should", "may",
+  "might", "could" are unapproved modals — and a caveat reading "this gain is probably
+  optimistic" must never become "this gain is optimistic". That is a change of claim wearing
+  the costume of a style fix, and it is the single most likely way this skill could damage
+  the project. **Clarity is a style question; certainty is a truth question. STE gets a vote
+  on the first and none on the second.**
+
+  Fabrication instructions (M2) are the strongest case for it: procedural text, a distracted
+  reader, and an irreversible cut.
 
 Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/characterize` and
 `rf-measurement-analyst` (M7) — see plan §7.

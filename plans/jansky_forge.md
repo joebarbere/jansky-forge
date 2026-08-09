@@ -189,6 +189,7 @@ Two things worth carrying forward:
 | `/catalog-entry` | skill | Add a build to the catalog with the provenance discipline enforced: find the primary source, record gaps as gaps, add the published-figure cross-check test | M0 |
 | `/new-antenna` | skill | Scaffold a new antenna family: model + protocol conformance + golden tests + docs | M0 |
 | `antenna-physics-reviewer` | agent | Read-only review of any diff touching a model: unit bugs (10 vs 20·log10, mm vs m, degrees vs radians), formula provenance against Balanis/Kraus, validity-limit notes present | M0 |
+| `/simple-english` | skill (vendored, MIT) | ASD-STE100 Simplified Technical English for reader-facing prose — README, install steps, release notes, and above all M2's fabrication instructions. Explicitly **not** for model notes or catalog caveats, where its modal restrictions would strip calibrated uncertainty | added 2026-08-08 |
 | `/fabrication-packet` | skill | Drive the M2 exporters and pre-flight the result (scale check, tiling, kerf, material fit) | M2 |
 | `/validate-model` | skill | Cross-check a design: analytic vs Tier-2 MoM vs any published figure, reporting disagreements | M6 |
 | `/characterize` | skill | The measured-vs-predicted workflow over VNA files and jansky-observe bundles | M7 |
