@@ -125,7 +125,7 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
     model's caveats**; tests enforce it.
   - `receivers.py` — N4, the parts catalogue: amplifiers, digitizers and clocks with the
     same provenance discipline as the antenna catalogue (`make audit` covers both and must
-    print nothing). Four availability tiers, so an unbuyable 2.2 K cryogenic part can sit
+    print nothing). Four availability tiers, so an unbuyable 3.5 K cryogenic part can sit
     next to a hobby module honestly. **`compare_amplifiers` ranks against a real antenna**;
     `would_a_better_lna_help` prices the ceiling *and* the achievable upgrade, and ranks only
     actions. **There is deliberately no path from a catalogue entry to a `TwoPort`** — a test
@@ -251,7 +251,7 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 ## Current status
 
 **N4 shipped — `v0.13.0` is released** (2026-08-09). The receiver track's point: a parts
-catalogue spanning hobby modules to a 2.2 K cryogenic InP HEMT, and "which should I buy?"
+catalogue spanning hobby modules to a 3.5 K cryogenic InP HEMT, and "which should I buy?"
 answered against a real antenna.
 
 **The rule this milestone had to get right** is where invariant 2 actually falls. A

@@ -126,7 +126,7 @@ Also: [rules of thumb](docs/rules-of-thumb.md) (numbers with their validity cond
 ## Status
 
 **N4 (`v0.13.0`) — receiver selection.** A parts catalogue with enforced provenance —
-amplifiers, digitizers, clocks — spanning hobby modules to a 2.2 K cryogenic InP HEMT, and
+amplifiers, digitizers, clocks — spanning hobby modules to a 3.5 K cryogenic InP HEMT, and
 comparison against **your** antenna rather than in the abstract.
 
 The unbuyable entries are there on purpose. Knowing the floor is 2 K, and that the sky at

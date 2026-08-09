@@ -18,7 +18,7 @@ transistor, and the practical value of the track was always N0 + N1 + N4.
 - **`receivers`** — a parts catalogue with the antenna catalogue's provenance discipline:
   amplifiers, digitizers and frequency standards, each with a real source URL, an
   availability tier, and honest caveats. `make audit` now covers it and must print nothing.
-- **Four availability tiers** — amateur, professional, research, historical. A 2.2 K
+- **Four availability tiers** — amateur, professional, research, historical. A 3.5 K
   cryogenic InP HEMT is in the catalogue *because* it is labelled unbuyable: it marks the
   ceiling, so you can see how much of your system temperature is actually yours to fix.
 - **The historical axis.** NRAO's own figures: 25 K at 4.5 GHz in 1980, 2 K at 4 GHz by 2003.
@@ -30,8 +30,8 @@ transistor, and the practical value of the track was always N0 + N1 + N4.
   the achievable upgrade (the best part you can actually order at your tier), fixing
   spillover, and removing the loss ahead of the amplifier, all on one scale.
 - **`quantum_noise_limit_k`** — `hf/k` = 0.0682 K at the hydrogen line. Every entry is
-  reported as a multiple of it, which is the honest way to read the cryogenic numbers: 2.2 K
-  is superb and still **32×** the limit.
+  reported as a multiple of it, which is the honest way to read the cryogenic numbers: a
+  3.5 K band average is superb and still **51×** the limit.
 - `jansky-forge parts` and `jansky-forge choose-receiver`.
 
 ### The line honesty invariant 2 draws, made precise
@@ -42,6 +42,20 @@ S-parameters are never shipped, never invented, and never inferred from a headli
 
 So there is deliberately **no path from a catalogue entry to a `TwoPort`**, and a test asserts
 the absence of one. This module does system budgets; it does not do amplifier design.
+
+### A citation error caught by opening the source
+The cryogenic entry was first written from a web-search summary — **2.2 K, cited to
+arXiv:1310.3088** — and both halves were wrong. That paper is a 27–33 GHz amplifier at 9.4 K,
+and the 2.2 K figure belongs to a different design where it is the **minimum, at 6 GHz**.
+
+The entry was internally consistent, carried a real URL, and passed the provenance audit. No
+test could have caught it: the tests check arithmetic, and this was a question about what a
+document says. It now uses the **3.5 K band average** from
+[Chalmers 2018](https://research.chalmers.se/en/publication/520245), says where the 2.2 K
+minimum comes from, and states plainly that the source gives no value at 1.42 GHz.
+
+New lesson: **a search summary is not a source.** The audit can check that a URL exists; only
+a person can check that it says what they wrote down.
 
 ### An honesty bug caught in its own first draft
 The first version of `would_a_better_lna_help` ranked *"a perfect 0 K amplifier"* against

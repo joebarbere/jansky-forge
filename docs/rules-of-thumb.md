@@ -175,7 +175,7 @@ spillover is costing you 21 K, fix the feed first. Compare terms before buying p
 | Quantity | Value |
 |---|---|
 | Quantum noise limit | `hf/k` — **0.0682 K** at 1420.4 MHz |
-| Best cryogenic InP HEMT | ~2.2 K at 4 K physical — still **32×** the quantum limit |
+| Best cryogenic InP HEMT | **3.5 K** average over 0.3-14 GHz at 4 K physical — still **51×** the quantum limit (2.2 K is its *minimum*, at 6 GHz) |
 | NRAO, 1980 | 25 K at 4.5 GHz |
 | NRAO, 2003 | 2 K at 4 GHz |
 | Typical amateur module today | 0.8 dB NF = **58.7 K**, room temperature |

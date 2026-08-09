@@ -5,9 +5,10 @@ data and decide whether it will oscillate. This is the milestone that answers th
 people actually have with a shopping page open: **which of these should I buy, what did the
 previous generation manage, and what is the best anyone can do?**
 
-**Why the unbuyable entries are here.** A 2.2 K cryogenic InP HEMT is not a thing you can
-order, and listing it is not aspiration — it is calibration. Knowing that the floor is 2 K
-and the sky at 21 cm is already ~5 K tells you something a catalogue of hobby parts cannot:
+**Why the unbuyable entries are here.** A 3.5 K cryogenic InP HEMT is not a thing you can
+order, and listing it is not aspiration — it is calibration. Knowing that the floor is a few
+kelvin and the sky at 21 cm is already ~5 K tells you something a catalogue of hobby parts
+cannot:
 **how much of your system temperature is actually yours to fix.** For most amateur stations
 the answer is "a lot", and for a few it is "almost none, stop shopping".
 
@@ -36,7 +37,8 @@ do not have, at a frequency that may not be yours.
 Sources
 -------
 NRAO Central Development Lab, *Low Noise Amplifiers* — the historical progression.
-Chalmers/arXiv 1310.3088 and follow-ons — cryogenic InP HEMT state of the art.
+Chalmers, *0.3-14 and 16-28 GHz Wide-Bandwidth Cryogenic MMIC Low-Noise Amplifiers* (2018)
+<https://research.chalmers.se/en/publication/520245> — cryogenic InP HEMT state of the art.
 Manufacturer datasheets, each linked from its own entry.
 """
 
@@ -69,8 +71,8 @@ def quantum_noise_limit_k(freq_hz: float) -> float:
     """``hf/k`` — the noise temperature no amplifier of any budget can go below.
 
     0.0682 K at the hydrogen line. Every entry in this catalogue is compared against it, which
-    is the honest way to read the cryogenic numbers: 2.2 K is superb engineering and still
-    **32× the quantum limit**, so the story is not over.
+    is the honest way to read the cryogenic numbers: a 3.5 K band average is superb
+    engineering and still **51× the quantum limit**, so the story is not over.
 
     (A phase-insensitive linear amplifier is bound by this. Phase-sensitive and
     photon-counting schemes evade it by giving up something else, and none of them are
@@ -409,19 +411,23 @@ _register(
         slug="cryo-inp-hemt",
         name="Cryogenic InP HEMT MMIC (0.3-14 GHz)",
         technology="InP HEMT MMIC at 4 K physical",
-        noise_temp_k=2.2,
-        gain_db=30.0,
+        noise_temp_k=3.5,
+        gain_db=41.6,
         freq_min_hz=300e6,
         freq_max_hz=14_000e6,
         physical_temp_k=4.0,
         availability=Availability.RESEARCH,
         claim=Claim.LITERATURE,
-        source_url="https://arxiv.org/pdf/1310.3088",
-        year=2013,
+        source_url="https://research.chalmers.se/en/publication/520245",
+        year=2018,
         caveats=(
-            "2.2 K is the minimum across the band at 4 K physical temperature; the average "
-            "over 0.3-14 GHz is 3.5 K. Quoting the minimum as though it were the band figure "
-            "is the usual way this number gets exaggerated.",
+            "3.5 K is the **average** over 0.3-14 GHz, and that is the figure used here. The "
+            "widely-quoted 2.2 K is the *minimum*, reported at 6 GHz — five times away from "
+            "the hydrogen line. Quoting a band minimum as though it were the band figure is "
+            "the usual way this number gets exaggerated, and this catalogue entry was itself "
+            "written that way in its first draft.",
+            "The source does not state a value at 1.42 GHz. This entry marks the ceiling for "
+            "the technology; it is not a prediction of what this part would do at 21 cm.",
             "It needs a closed-cycle cryostat. The dewar, compressor and vacuum plumbing cost "
             "and weigh far more than the amplifier, and the thermal design is the hard part.",
             "Loss ahead of a 2 K amplifier is catastrophic in a way it is not ahead of a 60 K "

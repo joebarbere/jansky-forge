@@ -21,7 +21,7 @@ Where they disagree, the disagreement is deliberate and explained.
 | Quantum limit at 21 cm (N4) | 0.0682 K | `hf/k` | Closed form |
 | SAWbird+ H1 (N4) | 58.7 K | 0.8 dB NF | [Nooelec datasheet](https://www.nooelec.com/store/downloads/dl/file/id/97/product/322/sawbird_h1_datasheet_revision_1.pdf) |
 | QPL9547 (N4) | 20.7 K | 0.3 dB NF @ 1.9 GHz | [Qorvo datasheet](https://www.mouser.com/datasheet/2/412/QPL9547_Data_Sheet-1854301.pdf) |
-| Cryogenic InP HEMT (N4) | 2.2 K min, 3.5 K avg | 0.3-14 GHz at 4 K | [arXiv:1310.3088](https://arxiv.org/pdf/1310.3088) |
+| Cryogenic InP HEMT (N4) | **3.5 K avg** over 0.3-14 GHz at 4 K | 3.5 K avg (2.2 K min, at 6 GHz) | [Chalmers 2018](https://research.chalmers.se/en/publication/520245) |
 | NRAO 1980 / 2003 (N4) | 25 K @ 4.5 GHz / 2 K @ 4 GHz | as published | [NRAO CDL](https://science.nrao.edu/facilities/cdl/low-noise-amplifiers) |
 | Pozar Ex 12.1 — K (N1) | 0.6071 | 0.607 | Pozar ch. 12 |
 | Pozar Ex 12.1 — \|Δ\| (N1) | 0.6964 | 0.696 | " |

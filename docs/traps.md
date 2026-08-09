@@ -156,6 +156,12 @@ two-port files only. Reading a `.s2p` the obvious way transposes the device:
 Smoke alarm: `TwoPort.is_reciprocal`. An amplifier that reads reciprocal has almost certainly
 been read wrong.
 
+### A quoted minimum is not a band figure
+
+Papers and datasheets quote their best number. The famous cryogenic "2.2 K" is a **minimum at
+6 GHz**; the same amplifier averages 3.5 K over 0.3–14 GHz, and neither figure is a statement
+about 1.4 GHz. Compare like with like, and say which one you are holding.
+
 ### A ceiling is not an option
 
 "A perfect 0 K amplifier would save 66 K" and "better cable would save 43 K" are not

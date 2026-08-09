@@ -99,7 +99,7 @@ def test_the_quantum_limit_is_the_floor_nothing_reaches():
     # Every catalogued part, including the best cryogenic one, sits well above it.
     for amplifier in rx.amplifiers():
         assert amplifier.times_quantum_limit(HI_HZ) > 1.0
-    assert rx.get_amplifier("cryo-inp-hemt").times_quantum_limit(HI_HZ) == pytest.approx(32, abs=1)
+    assert rx.get_amplifier("cryo-inp-hemt").times_quantum_limit(HI_HZ) == pytest.approx(51, abs=1)
     with pytest.raises(ValueError, match="frequency must be positive"):
         rx.quantum_noise_limit_k(0.0)
 
@@ -128,6 +128,21 @@ def test_the_historical_axis_is_the_interesting_comparison():
     assert observatory_1980.year == 1980
     # ...and two decades of HEMT work took the observatory from 25 K to 2 K.
     assert rx.get_amplifier("nrao-2003-4ghz").noise_temp_k == 2.0
+
+
+def test_the_cryogenic_entry_uses_the_band_average_not_the_band_minimum():
+    """A citation error caught by checking the source instead of trusting a search summary.
+
+    The first draft of this entry used 2.2 K, sourced to arXiv:1310.3088. Both were wrong:
+    that paper is a 27-33 GHz amplifier at 9.4 K, and the 2.2 K figure belongs to a different
+    design where it is the **minimum, at 6 GHz** — five times away from the hydrogen line.
+    The band average, 3.5 K, is the figure a 21 cm comparison can honestly use.
+    """
+    cryo = rx.get_amplifier("cryo-inp-hemt")
+    assert cryo.noise_temp_k == 3.5
+    assert "research.chalmers.se" in cryo.source_url
+    assert any("2.2 K is the *minimum*" in caveat for caveat in cryo.caveats)
+    assert any("does not state a value at 1.42 GHz" in caveat for caveat in cryo.caveats)
 
 
 def test_dynamic_range_is_the_axis_that_separates_digitizers():
