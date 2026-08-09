@@ -140,6 +140,32 @@ is 290 K.
 
 ---
 
+## Two-port networks and receivers
+
+| Quantity | Formula |
+|---|---|
+| Transducer gain, matched terminations | `\|S21\|²` |
+| Available gain, `Γs = 0` | `\|S21\|²/(1 − \|S22\|²)` |
+| Operating gain, `ΓL = 0` | `\|S21\|²/(1 − \|S11\|²)` |
+| Passive network noise temperature | `T = (L − 1)·290 K`, `L` the linear loss |
+| Noise figure vs source match | `F = Fmin + (4·Rn/Z0)·\|Γs − Γopt\|²/((1 − \|Γs\|²)·\|1 + Γopt\|²)` |
+| SWR from reflection coefficient | `(1 + \|Γ\|)/(1 − \|Γ\|)` |
+
+**A passive network's noise figure equals its loss**, in dB — 3 dB of loss is a 3 dB noise
+figure and 288.6 K. That single fact is why loss ahead of the LNA is ruinous.
+
+**Ask for the gain you mean.** Noise-figure work wants **available** gain specifically.
+
+**The best noise match is not the best power match.** Γopt is generally not the conjugate
+match, so minimum noise figure and maximum gain want different source impedances. Choosing
+between them is what LNA design *is*; a tool that silently optimises one is hiding the
+decision.
+
+**A quiet rule of thumb for whether to bother:** halving a 36 K receiver saves 18 K. If
+spillover is costing you 21 K, fix the feed first. Compare terms before buying parts.
+
+---
+
 ## On-sky
 
 | Quantity | Rule |
