@@ -117,6 +117,9 @@ this package is MIT and stays that way. pymininec (MIT, pure Python) is the defa
     matching, cable loss, and `Comparison`. **`Comparison` must never gain a field that
     merges prediction and measurement** — a test enforces it, and that test is the
     structural form of honesty invariant 5.
+  - `onsky.py` — M8: Y-factor Tsys, drift-scan beamwidth, transit aperture efficiency, and
+    `read_bundle()` for `jansky-observe` observation bundles. The schema identifier is
+    **checked**, so an upstream format change breaks loudly instead of mis-reading.
   - `cli.py` — `bands`, `list`, `show`, `characterize`, `design`, `fabricate`, `feed`,
     `probe`, `sensitivity`, `sources`.
 - `tests/` — pure, offline, no hardware and no network, ever. Golden values carry their
@@ -202,7 +205,21 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 
 ## Current status
 
-**M7 shipped — `v0.8.0` is released** (2026-08-09). Measurement ingest, and the milestone
+**M8 shipped — `v0.9.0` is released** (2026-08-09). On-sky characterization, and the
+cross-repo contract with `jansky-observe` honoured exactly as written at M0 — no changes were
+needed on that side.
+
+Three traps this milestone encodes, all of which flatter a careless measurement: the
+**Y-factor is ill-conditioned near unity** (0.1 dB moves Tsys by >100 K at a 1 dB ratio, so
+weak results are labelled upper bounds); a **drift scan needs linear power, not dB** (half a
+dB value is not the half-power point, and the error narrows the beam); and **averaging
+spectra in dB** is wrong in the direction that makes quiet data look better.
+
+**M9 (the interactive UI — FastAPI + htmx + canvas) is next**, and it is the last milestone
+before the `v1.0.0` gate, which is not a feature but a real antenna designed here, built from
+this tool's fabrication output, and measured back in through M7 and M8.
+
+**M7 shipped — `v0.8.0` was released** (2026-08-09). Measurement ingest, and the milestone
 where invariant 5 became structural rather than aspirational: `Comparison` keeps prediction
 and measurement in separate fields with nothing combining them, and a test asserts no such
 field exists.

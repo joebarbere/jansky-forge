@@ -93,7 +93,7 @@ src/jansky_forge/
 ├── wires.py        dipole, folded, ground reflection, arrays, yagi    [M5] ✅
 ├── mom.py          MomBackend protocol, pymininec, NEC deck export    [M6] ✅
 ├── measure.py      Touchstone, reference plane, matching, compare     [M7] ✅
-├── onsky/          Y-factor, drift-scan beam maps, transit SEFD     [M8]
+├── onsky.py        Y-factor, drift scans, transit, bundle ingest     [M8] ✅
 ├── server/         FastAPI + htmx + canvas, the live UI             [M9]
 ├── optimize/       sweeps, optimizers, constraint-driven design     [M10]
 ├── export/         openEMS/NEC decks                                [M11]
@@ -133,7 +133,7 @@ workflow exist from M0 so that is true from the first tag. Version lives in
 | `v0.6.0` | **M5 — Wire antennas & arrays** ✅ shipped 2026-08-09 | Dipole, folded dipole, ground-plane, Yagi-Uda, Moxon, helical, log-periodic, plus simple arrays and ground-reflection gain. Unlocks the **Radio JOVE dual-dipole and meteor-scatter yagi catalog entries** held back from M0 |
 | `v0.7.0` | **M6 — Tier-2 MoM validation** ✅ shipped 2026-08-09 | The `MomBackend` protocol + pymininec backend; analytic-vs-MoM pattern overlay; optional subprocess NEC2; an Arcanum-shaped seam. The button that says "check my closed-form answer against real numerics" |
 | `v0.8.0` | **M7 — Measurement ingest** ✅ shipped 2026-08-09 | scikit-rf dependency; NanoVNA/LiteVNA Touchstone import; measured SWR/impedance/S11 versus predicted, on one plot with separate provenance; match networks; cable-loss budgets |
-| `v0.9.0` | **M8 — On-sky characterization** | The loop closes: Y-factor Tsys, drift-scan beam maps, aperture efficiency and SEFD from a Sun or Cas A transit — computed from **jansky-observe observation bundles**, so a real antenna's measured beam lands beside the model's predicted beam |
+| `v0.9.0` | **M8 — On-sky characterization** ✅ shipped 2026-08-09 | The loop closes: Y-factor Tsys, drift-scan beam maps, aperture efficiency and SEFD from a Sun or Cas A transit — computed from **jansky-observe observation bundles**, so a real antenna's measured beam lands beside the model's predicted beam |
 | `v0.10.0` | **M9 — Interactive UI** | FastAPI + htmx + a canvas module (the proven sibling stack): catalog browser, slider-driven design with live recompute, pattern plots, side-by-side design comparison. The moment the tool becomes pleasant rather than merely correct |
 | `v0.11.0` | **M10 — Sweeps & optimization** | Parametric sweeps with plots, Nelder-Mead/GA optimizers over any parameter set, constraint-driven design ("maximize G/T subject to D ≤ 1.2 m and it must fit through a door"), Pareto fronts |
 | `v0.12.0` | **M11 — Full-wave export** | Generate runnable openEMS Python decks and NEC input cards from any design; import the results back for comparison. Rigor without owning a solver |
@@ -215,9 +215,10 @@ it. So is the JOVE dual-dipole's 1 dB mutual-coupling shortfall.
 
 ## 8. Cross-repo contracts
 
-- **`jansky-observe` → jansky-forge (M8):** consumes the codified observation bundle
-  (`jansky-observe.observation-bundle/1`) — station UUID, pointing, LST, SDR settings — to
-  derive beam maps and transit-based efficiency. Read-only; no changes needed on that side.
+- **`jansky-observe` → jansky-forge (M8): ✅ honoured.** `onsky.read_bundle()` consumes the
+  codified observation bundle (`jansky-observe.observation-bundle/1`), zip or unpacked, and
+  checks the schema identifier rather than assuming it. No changes were needed on that side —
+  the format was already right, which is what a contract written down in advance buys.
 - **`jansky-observe` → jansky-forge (M12):** HackRF `hackrf_sweep` CSV captures feed the
   RFI-aware siting helper.
 - **jansky-forge → `jansky-research` (post-1.0):** a measured antenna characterization is

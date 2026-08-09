@@ -5,6 +5,49 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.9.0] — M8, On-sky characterization
+
+M7 read a vector network analyser, which tells you whether the antenna is *matched*. A
+matched antenna can still be pointing at your neighbour's shed. M8 reads what the sky put
+through it — and it is the first milestone whose numbers are not derived from geometry at all.
+
+### The cross-repo contract, honoured
+`read_bundle()` consumes `jansky-observe`'s codified observation bundle
+(`jansky-observe.observation-bundle/1`) — zip or unpacked. The manifest keys and npz array
+names are copied from that repo's exporter, and the schema identifier is **checked, not
+assumed**: an upstream format change breaks loudly here rather than silently mis-reading.
+That contract was written into this project's plan at M0 and is now real.
+
+### Three measurements
+- **Y-factor system temperature**, straight from a bundle's `cold_sky` and `hot_ground`
+  captures — the station already labels them, so this needs no configuration.
+- **Drift-scan beamwidth**: stop the dish, let the sky rotate a source through the beam, and
+  the power-versus-time trace *is* the beam once time becomes angle at 15·cos(dec) deg/hour.
+  It is the only beam measurement an amateur can make without a rotator or a test range.
+- **Transit aperture efficiency**: M4's sensitivity relation run backwards, turning a
+  temperature rise against a known flux into collecting area. **This is the efficiency every
+  earlier milestone could only assume, computed, or bound.**
+
+### The traps it flags, with numbers
+- **Y-factor is ill-conditioned near unity.** Tsys comes from a difference of nearly-equal
+  quantities, so at a 1 dB ratio a tenth of a decibel moves the answer by over a hundred
+  kelvin, while at 6 dB it is worth a few. Every result reports that sensitivity, and a weak
+  Y-factor is labelled an upper bound rather than a number.
+- **A drift scan needs linear power, not dB.** Half of a dB value is not the half-power
+  point, and the mistake makes a beam look far narrower than it is — so dB input is rejected
+  outright rather than quietly accepted.
+- **Averaging spectra in dB is wrong**, and wrong in a direction that flatters quiet data, so
+  band averaging converts to linear first.
+- An aperture efficiency above 1 is reported as impossible rather than printed.
+
+### Measured still never merges with predicted
+`BeamComparison` keeps the model's beamwidth and the sky's in separate fields with nothing
+combining them, and a test asserts no merged field can be added — the same structural rule
+M7 established. It also diagnoses: a measured beam much wider than predicted is usually
+pointing drift or a resolved source, and one much narrower usually means the baseline was
+taken on-source.
+
+
 ## [0.8.0] — M7, Measurement ingest
 
 Every milestone so far produced a *prediction*. This one reads what a vector network
