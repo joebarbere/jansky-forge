@@ -153,8 +153,12 @@ class MeasuredSweep:
 # --------------------------------------------------------------------------------------
 
 
-def parse_option_line(line: str) -> tuple[float, str, float]:
-    """Parse a Touchstone ``#`` option line into ``(frequency_scale, format, z0)``.
+def parse_option_line(line: str) -> tuple[float, str, float, str]:
+    """Parse a Touchstone ``#`` option line into ``(frequency_scale, format, z0, parameter)``.
+
+    ``parameter`` is ``s``, ``y``, ``z``, ``h`` or ``g``. Everything in this project reads
+    S-parameters, but a file that says ``Y`` is not an S-parameter file, and reading it as one
+    produces numbers rather than an error.
 
     Shared with the two-port reader in :mod:`jansky_forge.twoport`: the option line is
     identical for every port count, and two copies of a parser is two things to keep in step.
@@ -162,16 +166,18 @@ def parse_option_line(line: str) -> tuple[float, str, float]:
     Touchstone's documented defaults are GHz, magnitude/angle, and 50 ohms — and the default
     frequency unit being GHz rather than Hz is a trap for anyone who assumes SI.
     """
-    scale, fmt, z0 = 1e9, "ma", DEFAULT_Z0_OHM
+    scale, fmt, z0, parameter = 1e9, "ma", DEFAULT_Z0_OHM, "s"
     tokens = line.lstrip("#").lower().split()
     for index, token in enumerate(tokens):
         if token in _FREQ_UNITS:
             scale = _FREQ_UNITS[token]
         elif token in ("ri", "ma", "db"):
             fmt = token
+        elif token in ("s", "y", "z", "h", "g"):
+            parameter = token
         elif token == "r" and index + 1 < len(tokens):
             z0 = float(tokens[index + 1])
-    return scale, fmt, z0
+    return scale, fmt, z0, parameter
 
 
 def parse_touchstone(text: str, *, source: str = "") -> MeasuredSweep:
@@ -202,7 +208,13 @@ def parse_touchstone(text: str, *, source: str = "") -> MeasuredSweep:
                 comments.append(comment)
             continue
         if line.startswith("#"):
-            frequency_scale, fmt, z0 = parse_option_line(line)
+            frequency_scale, fmt, z0, parameter = parse_option_line(line)
+            if parameter != "s":
+                raise ValueError(
+                    f"this file holds {parameter.upper()}-parameters, not S-parameters. "
+                    "Reading it as a reflection sweep would produce numbers rather than an "
+                    "error, which is worse."
+                )
             continue
         line = line.split("!", 1)[0]
         parts = re.split(r"[\s,]+", line.strip())

@@ -147,12 +147,16 @@ is 290 K.
 | Transducer gain, matched terminations | `\|S21\|²` |
 | Available gain, `Γs = 0` | `\|S21\|²/(1 − \|S22\|²)` |
 | Operating gain, `ΓL = 0` | `\|S21\|²/(1 − \|S11\|²)` |
-| Passive network noise temperature | `T = (L − 1)·290 K`, `L` the linear loss |
+| Passive network noise temperature | `T = (L − 1)·290 K`, `L = 1/G_A` the **available** loss |
 | Noise figure vs source match | `F = Fmin + (4·Rn/Z0)·\|Γs − Γopt\|²/((1 − \|Γs\|²)·\|1 + Γopt\|²)` |
 | SWR from reflection coefficient | `(1 + \|Γ\|)/(1 − \|Γ\|)` |
 
 **A passive network's noise figure equals its loss**, in dB — 3 dB of loss is a 3 dB noise
 figure and 288.6 K. That single fact is why loss ahead of the LNA is ruinous.
+
+**But "its loss" means available loss, `1/G_A`, not `|S21|²`.** Those agree only for a
+matched network. On a mismatched one the difference is a factor of two in the wrong
+direction. → [Traps](traps.md)
 
 **Ask for the gain you mean.** Noise-figure work wants **available** gain specifically.
 

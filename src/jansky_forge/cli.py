@@ -484,14 +484,19 @@ def _print_network(args: argparse.Namespace) -> None:
         )
 
     # The three gains are different numbers; printing one and calling it "gain" is the
-    # confusion this milestone exists to prevent. With both ports matched they agree.
+    # confusion this milestone exists to prevent.
     print("\n  gain, with the ports matched (Gs = GL = 0):")
-    for label, gain in (
-        ("transducer", twoport.transducer_gain(s)),
-        ("available ", twoport.available_gain(s)),
-        ("operating ", twoport.operating_gain(s)),
+    for label, compute in (
+        ("transducer", twoport.transducer_gain),
+        ("available ", twoport.available_gain),
+        ("operating ", twoport.operating_gain),
     ):
-        print(f"    {label}   {10 * math.log10(gain):+8.2f} dB")
+        try:
+            print(f"    {label}   {10 * math.log10(compute(s)):+8.2f} dB")
+        except ValueError as reason:
+            # A potentially unstable device can drive |Γin| or |Γout| past 1, where the gain
+            # is not a gain. Say which one and why, rather than a traceback or a NaN.
+            print(f"    {label}   undefined — {reason}")
     if abs(s[0, 0]) > 1e-9 or abs(s[1, 1]) > 1e-9:
         print(
             "    - they differ by the device's own mismatch: matched terminations are not\n"

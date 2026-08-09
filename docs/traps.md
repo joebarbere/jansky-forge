@@ -156,6 +156,20 @@ two-port files only. Reading a `.s2p` the obvious way transposes the device:
 Smoke alarm: `TwoPort.is_reciprocal`. An amplifier that reads reciprocal has almost certainly
 been read wrong.
 
+### Friis wants **available** gain, not insertion loss
+
+A passive network at 290 K has `F = 1/G_A`. `G_A` is the **available** gain, which is
+`|S21|²/(1 − |S22|²)` for a matched source — not `|S21|²`. They coincide only when the
+network is matched, and measured data never is.
+
+A bare series 200 Ω in a 50 Ω system: `|S21|² = −9.54 dB`, `G_A = −6.99 dB`. Taking the first
+gives **2320 K where the truth is 1160 K** — a factor of two, in the direction that makes
+your receiver look worse than it is. And the gain is wrong too, so it does not cancel in the
+cascade.
+
+Sanity check with no S-parameters at all: Thévenin says a series 200 Ω fed from 50 Ω leaves
+Voc unchanged and presents 250 Ω, so available gain is 50/250 = 1/5, `F = 5`, `Te = 1160 K`.
+
 ### Matched terminations are not enough for the three gains to agree
 
 Transducer, available and operating gain are three different numbers. With `Γs = ΓL = 0`:

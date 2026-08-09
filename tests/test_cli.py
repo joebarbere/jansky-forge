@@ -467,3 +467,22 @@ def test_network_says_so_when_a_file_carries_no_noise_data(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "no noise block" in out
     assert "reciprocal (passive)" in out
+
+
+def test_network_diagnoses_an_unstable_device_instead_of_crashing(tmp_path, capsys):
+    """A potentially unstable part drives |Γin|, |Γout| past 1, where a gain is not a gain.
+
+    The gain functions raise there rather than returning a negative power ratio, so the CLI
+    has to catch it. Before the fix this was `ValueError: math domain error` from log10.
+    """
+    path = tmp_path / "unstable.s2p"
+    path.write_text(
+        "# HZ S MA R 50\n"
+        "1.3e9 1.20 -60  3.0 120  0.15 70  1.10 -30\n"
+        "1.4e9 1.20 -60  3.0 120  0.15 70  1.10 -30\n"
+    )
+    assert cli.main(["network", str(path)]) == 0
+    out = capsys.readouterr().out
+    assert "transducer" in out and "+9.5" in out  # this one is still defined
+    assert out.count("undefined") == 2  # available and operating are not
+    assert "oscillating, not amplifying" in out

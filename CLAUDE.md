@@ -239,8 +239,26 @@ Later milestones add `/fabrication-packet` (M2), `/validate-model` (M6), `/chara
 tool can now read a vendor's `.s2p` with NumPy alone, name the three gains separately instead
 of conflating them, and hand a network straight to M4's noise budget.
 
-Two things it got wrong and fixed, both worth remembering because both were caught by
-something other than the code under test:
+**The N0 review found one real physics error**, and it is the most instructive thing in the
+milestone: `as_stage` used **insertion loss** (`|S21|²`) where Friis needs **available loss**
+(`1/G_A`). Those agree only for a matched network, and a measured `.s2p` never is — a bare
+series 200 Ω gave 2320 K where the truth is 1160 K. Every test was green, because every
+anchor was a matched attenuator, the one case where the two definitions coincide.
+
+**The lesson, now in `docs/lessons-learned.md`: an exactly-analysable anchor can be exactly
+the wrong anchor.** Ask of any clean anchor what its cleanliness makes degenerate. An ideal
+component is usually clean because several distinct quantities have collapsed into one, and
+each collapse is a bug you cannot see. The replacement anchor is a bare series resistor —
+still exact, but mismatched.
+
+The same review also fixed: `NoiseParameters` not carrying the file's Z0 (Rn is stored
+normalized); unstable devices returning negative power ratios instead of raising; silent
+extrapolation of noise data; the reader accepting 3-port and Y-parameter files; `s_to_y`
+routing through a Z matrix that need not exist; and `is_reciprocal` using a tolerance no
+measured cable could meet.
+
+Two more, worth remembering because both were caught by something other than the code under
+test:
 
 - The CLI printed *"these are equal because both terminations are matched"* above three
   visibly different numbers. Matched terminations are not enough — the gains collapse to

@@ -24,8 +24,10 @@ like a working design. :func:`parse_touchstone_2port` handles it and the tests p
                      Depends only on the load
 ===================  ==================================================================
 
-They collapse to ``|S21|²`` when both ports are matched, which is the check that they are
-implemented right.
+With ``Γs = ΓL = 0`` you get ``G_T = |S21|²``, ``G_A = |S21|²/(1 − |S22|²)`` and
+``G_P = |S21|²/(1 − |S11|²)`` — so they collapse to a single number only when the **device**
+is matched as well, which is true of an ideal pad and false of every real amplifier. Matched
+terminations are not enough. Noise-figure work wants **available** gain specifically.
 
 **We ship no transistor data.** Fmin, Γopt and Rn come from vendor files. Under honesty
 invariant 2 this module reads them and never invents them — the same rule that kept a
@@ -73,6 +75,10 @@ class NoiseParameters:
     gamma_opt: np.ndarray
     #: Equivalent noise resistance, ohms — how sharply F degrades away from Γopt.
     rn_ohm: np.ndarray
+    #: The reference impedance these were measured against. Touchstone stores Rn *normalized*
+    #: to it, so the file's own Z0 has to travel with the data — defaulting to 50 Ω silently
+    #: mis-scales the excess-noise term for any 75 Ω file.
+    z0_ohm: float = DEFAULT_Z0_OHM
 
     def __post_init__(self) -> None:
         shapes = {a.shape for a in (self.freq_hz, self.fmin_db, self.gamma_opt, self.rn_ohm)}
@@ -80,9 +86,16 @@ class NoiseParameters:
             raise ValueError("all noise-parameter arrays must be the same length")
         if self.freq_hz.size == 0:
             raise ValueError("empty noise data")
+        if self.z0_ohm <= 0:
+            raise ValueError("reference impedance must be positive")
+        if np.any(np.abs(self.gamma_opt) >= 1.0):
+            raise ValueError(
+                "|Γopt| must be below 1 — an optimum source match that reflects more than it "
+                "receives is not physical, and Γopt = −1 makes the excess-noise term singular"
+            )
 
     def noise_figure_db(
-        self, gamma_source: complex, freq_hz: float, z0_ohm: float = DEFAULT_Z0_OHM
+        self, gamma_source: complex, freq_hz: float, z0_ohm: float | None = None
     ) -> float:
         """Noise figure for a given source match.
 
@@ -94,6 +107,16 @@ class NoiseParameters:
             raise ValueError(
                 "|Γs| must be below 1 — a passive source cannot reflect more than it receives"
             )
+        # Clamping (np.interp's default) would return a plausible number for a frequency the
+        # device was never characterized at. TwoPort.at refuses to extrapolate; so does this.
+        if not self.freq_hz[0] <= freq_hz <= self.freq_hz[-1]:
+            raise ValueError(
+                f"{freq_hz / 1e6:.3f} MHz is outside the noise data's range "
+                f"{self.freq_hz[0] / 1e6:.3f}-{self.freq_hz[-1] / 1e6:.3f} MHz. Noise "
+                "parameters are not extrapolated; the vendor did not measure there."
+            )
+        if z0_ohm is None:
+            z0_ohm = self.z0_ohm
         fmin = float(np.interp(freq_hz, self.freq_hz, self.fmin_db))
         rn = float(np.interp(freq_hz, self.freq_hz, self.rn_ohm))
         opt = complex(
@@ -154,15 +177,33 @@ class TwoPort:
 
     @property
     def is_reciprocal(self) -> bool:
-        """S12 == S21. True of any passive network; false of any amplifier.
+        """S12 ≈ S21. True of any passive network; false of any amplifier.
 
         Useful as a sanity check on a freshly-read file: an amplifier that reads reciprocal
         has almost certainly been transposed.
+
+        The tolerance is **relative and loose on purpose**. Measured VNA data never has
+        S12 = S21 to nine decimals, and a tight tolerance would label every real cable
+        "non-reciprocal (active)" — turning the check into noise exactly when it is being
+        applied to the files it exists for. The question is "are these the same path", not
+        "are these the same float".
         """
-        return bool(np.allclose(self.s12, self.s21, atol=1e-9))
+        scale = float(np.max(np.abs(self.s21)))
+        return bool(np.allclose(self.s12, self.s21, rtol=1e-2, atol=1e-3 * max(scale, 1e-12)))
 
     def at(self, freq_hz: float) -> np.ndarray:
-        """The 2×2 S-matrix at one frequency, interpolated between samples."""
+        """The 2×2 S-matrix at one frequency, linearly interpolated between samples.
+
+        **Interpolating real and imaginary parts is only safe while the phase turns slowly
+        between samples.** A long cable rotates phase quickly with frequency, and once the
+        step approaches π the interpolation cuts the corner: on a 10 MHz grid, a lossless
+        10 m line reads ``|S21| = 0.017`` half way between two points where the true value is
+        1. That is a 35 dB error on a network with no loss at all.
+
+        It is not a problem for typical device data, where a vendor samples finely enough to
+        draw the curve. It is a problem for anything electrically long. If in doubt, ask for
+        the frequencies the file actually contains.
+        """
         if not self.freq_hz[0] <= freq_hz <= self.freq_hz[-1]:
             raise ValueError(
                 f"{freq_hz / 1e6:.3f} MHz is outside the swept range "
@@ -228,14 +269,19 @@ def parse_touchstone_2port(text: str, *, source: str = "") -> TwoPort:
                 comments.append(comment)
             continue
         if line.startswith("#"):
-            scale, fmt, z0 = parse_option_line(line)
+            scale, fmt, z0, parameter = parse_option_line(line)
+            if parameter != "s":
+                raise ValueError(
+                    f"this file holds {parameter.upper()}-parameters, not S-parameters. "
+                    "Convert it, or read it with something that understands them."
+                )
             continue
         parts = re.split(r"[\s,]+", line.split("!", 1)[0].strip())
         try:
             numbers = [float(p) for p in parts if p]
         except ValueError:
             continue
-        if len(numbers) >= _S_COLUMNS:
+        if len(numbers) == _S_COLUMNS:
             f, s11a, s11b, s21a, s21b, s12a, s12b, s22a, s22b = numbers[:_S_COLUMNS]
             freqs.append(f * scale)
             matrices.append(
@@ -256,7 +302,8 @@ def parse_touchstone_2port(text: str, *, source: str = "") -> TwoPort:
     if not freqs:
         raise ValueError(
             "no two-port data rows found. A .s2p needs an option line starting '#' and rows "
-            "of 'frequency S11 S21 S12 S22' (nine numbers)."
+            "of 'frequency S11 S21 S12 S22' (nine numbers). A 19-number row is a 3-port "
+            "file, which this reader will not silently truncate to its first four terms."
         )
 
     noise = None
@@ -266,6 +313,7 @@ def parse_touchstone_2port(text: str, *, source: str = "") -> TwoPort:
             fmin_db=np.array([r[1] for r in noise_rows]),
             gamma_opt=np.array([r[2] for r in noise_rows]),
             rn_ohm=np.array([r[3] for r in noise_rows]),
+            z0_ohm=z0,
         )
 
     return TwoPort(
@@ -333,8 +381,14 @@ def z_to_s(z: np.ndarray, z0_ohm: float = DEFAULT_Z0_OHM) -> np.ndarray:
 
 
 def s_to_y(s: np.ndarray, z0_ohm: float = DEFAULT_Z0_OHM) -> np.ndarray:
-    """S-matrix to admittance matrix."""
-    return np.linalg.inv(s_to_z(s, z0_ohm))
+    """S-matrix to admittance matrix: Y = (1/Z0)(I − S)(I + S)⁻¹.
+
+    Computed directly rather than as ``inv(s_to_z(...))``. A shunt element has a perfectly
+    good Y matrix and a **singular Z matrix**, so the inverse-of-an-inverse route raises
+    `LinAlgError` on a network the answer exists for.
+    """
+    identity = np.eye(2, dtype=complex)
+    return (identity - s) @ np.linalg.inv(identity + s) / z0_ohm
 
 
 # --------------------------------------------------------------------------------------
@@ -384,6 +438,12 @@ def available_gain(s: np.ndarray, *, gamma_source: complex = 0j) -> float:
     """
     s11, s21 = s[0, 0], s[1, 0]
     gamma_out = output_reflection(s, gamma_source)
+    if abs(gamma_out) >= 1.0:
+        raise ValueError(
+            f"|Γout| = {abs(gamma_out):.3f} for this source match, so the network delivers "
+            "more power than it is given: it is oscillating, not amplifying. Available gain "
+            "has no meaning here. This is what N1's stability circles are for."
+        )
     denominator = abs(1 - s11 * gamma_source) ** 2 * (1 - abs(gamma_out) ** 2)
     if denominator == 0:
         raise ValueError("degenerate source match; available gain is singular here")
@@ -398,6 +458,12 @@ def operating_gain(s: np.ndarray, *, gamma_load: complex = 0j) -> float:
     """
     s22, s21 = s[1, 1], s[1, 0]
     gamma_in = input_reflection(s, gamma_load)
+    if abs(gamma_in) >= 1.0:
+        raise ValueError(
+            f"|Γin| = {abs(gamma_in):.3f} for this load, so the input port reflects more "
+            "power than it receives: the network is oscillating, not amplifying. Operating "
+            "gain has no meaning here. This is what N1's stability circles are for."
+        )
     denominator = (1 - abs(gamma_in) ** 2) * abs(1 - s22 * gamma_load) ** 2
     if denominator == 0:
         raise ValueError("degenerate load match; operating gain is singular here")
@@ -541,27 +607,49 @@ def ideal_amplifier(
 
 
 def as_stage(
-    network: TwoPort, freq_hz: float, *, noise_temp_k: float | None = None, name: str = ""
+    network: TwoPort,
+    freq_hz: float,
+    *,
+    noise_temp_k: float | None = None,
+    gamma_source: complex = 0j,
+    name: str = "",
 ):
     """Turn a two-port into a :class:`jansky_forge.sensitivity.Stage` for the Friis cascade.
 
     This is the seam between the receiver track and M4's noise budget: once a network is a
     Stage, everything the tool already knows about system temperature applies to it.
 
-    With no ``noise_temp_k`` the network is assumed **passive at room temperature**, so its
-    noise temperature is derived from its loss — which is exactly right for a cable, a pad or
-    a filter, and exactly wrong for an amplifier. Pass the amplifier's noise figure instead.
+    **Friis is written in available gain, not** ``|S21|²``. Those are the same number only
+    when the network is matched, and a real measured ``.s2p`` never is — which is the whole
+    reason :func:`read_touchstone_2port` exists. So the gain reported here is
+    :func:`available_gain` for the stated source match, and a passive network's noise
+    temperature follows from ``F = 1/G_A``, the available *loss*.
+
+    Getting this wrong is not a rounding error. A bare series 200 Ω in a 50 Ω system has
+    ``|S21|² = −9.54 dB`` but an available gain of ``−6.99 dB``; taking the first gives
+    2320 K where the true excess noise temperature is 1160 K, a **factor of two**, and it
+    does not cancel downstream because the gain is wrong too.
+
+    Because available gain depends on the source, so does this. ``gamma_source`` defaults to
+    a matched source; in a real chain it is the previous stage's output reflection, and if
+    you care about that you must say so rather than let a default decide it quietly.
+
+    With no ``noise_temp_k`` the network is assumed **passive at room temperature**, which is
+    right for a cable, a pad or a filter and wrong for an amplifier. Pass the amplifier's
+    noise figure instead.
     """
     from jansky_forge.sensitivity import Stage, loss_to_temperature_k
 
     s = network.at(freq_hz)
-    gain_db = 20 * math.log10(abs(s[1, 0]))
+    gain_db = 10 * math.log10(available_gain(s, gamma_source=gamma_source))
     if noise_temp_k is None:
         if gain_db > 0:
             raise ValueError(
-                f"this network has {gain_db:+.1f} dB of gain, so it is not passive and its "
-                "noise temperature cannot be derived from loss. Supply noise_temp_k (from "
-                "the device's noise figure)."
+                f"this network has {gain_db:+.1f} dB of available gain, so it is not passive "
+                "and its noise temperature cannot be derived from loss. Supply noise_temp_k "
+                "(from the device's noise figure)."
             )
+        # F = 1/G_A for a passive network at 290 K. loss_to_temperature_k wants the loss in
+        # dB, which is the available gain with its sign flipped.
         noise_temp_k = loss_to_temperature_k(-gain_db)
     return Stage(name or network.source or "two-port", gain_db, noise_temp_k)

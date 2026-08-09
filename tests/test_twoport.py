@@ -15,6 +15,7 @@ And one test exists purely to pin a file-format trap: two-port Touchstone is ord
 
 from __future__ import annotations
 
+import cmath
 import math
 
 import numpy as np
@@ -385,3 +386,165 @@ def test_matched_terminations_are_not_enough_for_the_gains_to_agree():
     matched = tp.attenuator(loss_db=6.0, freq_hz=FREQ).at(MID)
     assert tp.transducer_gain(matched) == pytest.approx(tp.available_gain(matched))
     assert tp.transducer_gain(matched) == pytest.approx(tp.operating_gain(matched))
+
+
+# --------------------------------------------------------------------------------------
+# Fixes from the N0 review. Each of these passed before the fix, because every earlier
+# anchor was a *matched* network -- the one case where the wrong formula is right.
+# --------------------------------------------------------------------------------------
+
+
+def series_resistor(ohms: float, z0: float = 50.0) -> tp.TwoPort:
+    """A bare series resistor: passive, reciprocal, and badly mismatched.
+
+    Exactly analysable from first principles with no S-parameters involved, which is what
+    makes it the right anchor for a bug that hides behind a matched network.
+    """
+    s11 = ohms / (ohms + 2 * z0)
+    s21 = 2 * z0 / (ohms + 2 * z0)
+    s = np.array([[[s11, s21], [s21, s11]]], dtype=complex)
+    return tp.TwoPort(freq_hz=np.array([1.4e9]), s=s, z0_ohm=z0)
+
+
+def test_friis_wants_available_gain_not_s21_squared():
+    """The N0 review's one real physics error, pinned.
+
+    A passive network at 290 K has F = 1/G_A — the **available** loss, not the insertion
+    loss. They agree only when the network is matched, and a measured `.s2p` never is.
+
+    Thévenin check, no S-parameters: a series 200 Ω fed from 50 Ω leaves Voc unchanged and
+    presents 250 Ω, so available gain is 50/250 = 1/5, F = 5, and Te = 4 × 290 = 1160 K.
+    Taking |S21|² instead gives 1/9, F = 9, and 2320 K — a factor of two.
+    """
+    network = series_resistor(200.0)
+    s = network.at(1.4e9)
+    assert 20 * math.log10(abs(s[1, 0])) == pytest.approx(-9.542, abs=1e-3)  # insertion
+    assert tp.available_gain(s) == pytest.approx(0.2)  # available: 50/250
+    stage = tp.as_stage(network, 1.4e9)
+    assert stage.gain_db == pytest.approx(-6.9897, abs=1e-3)
+    assert stage.noise_temp_k == pytest.approx(1160.0, rel=1e-9)
+    assert stage.noise_temp_k != pytest.approx(2320.0, rel=1e-3)
+
+
+def test_the_matched_case_still_holds_which_is_why_this_hid():
+    """For a matched pad the two definitions coincide, so the old anchor stayed green."""
+    from jansky_forge.sensitivity import loss_to_temperature_k
+
+    stage = tp.as_stage(tp.attenuator(loss_db=3.0, freq_hz=FREQ), MID)
+    assert stage.gain_db == pytest.approx(-3.0, abs=1e-9)
+    assert stage.noise_temp_k == pytest.approx(loss_to_temperature_k(3.0), rel=1e-9)
+
+
+def test_as_stage_gain_depends_on_the_source_match_and_says_so():
+    """Available gain is a function of Γs, so `as_stage` is too. Not a hidden default."""
+    network = series_resistor(200.0)
+    matched = tp.as_stage(network, 1.4e9)
+    mismatched = tp.as_stage(network, 1.4e9, gamma_source=0.5 + 0j)
+    assert mismatched.gain_db != pytest.approx(matched.gain_db, abs=1e-3)
+
+
+def test_an_active_network_is_judged_on_available_gain_too():
+    """An amplifier with a mismatched output has more available gain than |S21|²."""
+    s = np.array([[[0.0, 0.0], [10.0, 0.5]]], dtype=complex)
+    amp = tp.TwoPort(freq_hz=np.array([1.4e9]), s=s)
+    stage = tp.as_stage(amp, 1.4e9, noise_temp_k=30.0)
+    assert stage.gain_db == pytest.approx(10 * math.log10(100 / (1 - 0.25)), abs=1e-9)
+    assert stage.gain_db == pytest.approx(21.249, abs=1e-3)  # not 20.000
+
+
+def test_noise_parameters_carry_their_own_reference_impedance():
+    """Touchstone stores Rn normalized to the file's Z0, so the Z0 must travel with it."""
+    seventy_five = AMPLIFIER_S2P.replace("# HZ S RI R 50", "# HZ S RI R 75")
+    network = tp.parse_touchstone_2port(seventy_five)
+    assert network.noise is not None
+    assert network.noise.z0_ohm == 75.0
+    assert network.noise.rn_ohm[1] == pytest.approx(0.21 * 75.0)
+    # The documented call takes no z0 argument, and must still be right for a 75 ohm file.
+    assert network.noise.noise_figure_db(0.2 + 0.3j, 1.4e9) == pytest.approx(0.34667, abs=1e-4)
+
+
+def test_noise_figure_refuses_to_extrapolate():
+    """np.interp clamps; a clamped value is a plausible number for an unmeasured band."""
+    noise = tp.parse_touchstone_2port(AMPLIFIER_S2P).noise
+    assert noise is not None
+    with pytest.raises(ValueError, match="outside the noise data's range"):
+        noise.noise_figure_db(0j, 10e9)
+    with pytest.raises(ValueError, match="outside the noise data's range"):
+        noise.noise_figure_db(0j, 1.0)
+
+
+def test_noise_parameters_reject_an_unphysical_gamma_opt():
+    with pytest.raises(ValueError, match=r"\|Γopt\| must be below 1"):
+        tp.NoiseParameters(
+            freq_hz=np.array([1.4e9]),
+            fmin_db=np.array([0.3]),
+            gamma_opt=np.array([-1.0 + 0j]),  # makes |1 + Γopt|² = 0
+            rn_ohm=np.array([10.0]),
+        )
+
+
+def test_an_oscillating_network_raises_instead_of_returning_negative_power():
+    """A potentially unstable device driven past |Γ| = 1 is oscillating, not amplifying.
+
+    The old code returned a *negative* power ratio, which the CLI then fed to log10.
+    """
+    # K < 1 transistor: |S11| and |S22| large, S12 non-negligible.
+    s = np.array(
+        [
+            [cmath.rect(0.8, math.radians(-60)), cmath.rect(0.15, math.radians(70))],
+            [cmath.rect(3.0, math.radians(120)), cmath.rect(0.7, math.radians(-30))],
+        ],
+        dtype=complex,
+    )
+    with pytest.raises(ValueError, match="oscillating, not amplifying"):
+        tp.available_gain(s, gamma_source=0.378 + 0.872j)
+    with pytest.raises(ValueError, match="oscillating, not amplifying"):
+        tp.operating_gain(s, gamma_load=0.75 + 0.4j)
+    # And it is perfectly well behaved at a source match that does not provoke it.
+    assert tp.available_gain(s, gamma_source=0j) > 0
+
+
+def test_s_to_y_handles_a_network_whose_z_matrix_does_not_exist():
+    """A bare series impedance has a Y matrix and **no** Z matrix.
+
+    Its ports carry I1 = −I2, so Z is singular — while Y = [[1/Z, −1/Z], [−1/Z, 1/Z]] is
+    perfectly well defined. Computing Y as `inv(s_to_z(...))` therefore raised LinAlgError on
+    a network whose answer exists. The direct form Y = (1/Z0)(I − S)(I + S)⁻¹ does not.
+
+    (The review that found this named a *shunt* element; it is the other way round. A shunt
+    element is the case with a Z matrix and no Y. The bug and the fix are unaffected.)
+    """
+    z0, series_ohms = 50.0, 100.0
+    normalized = series_ohms / z0
+    s11 = normalized / (normalized + 2)
+    s21 = 2 / (normalized + 2)
+    s = np.array([[s11, s21], [s21, s11]], dtype=complex)
+
+    y = tp.s_to_y(s, z0)
+    assert y[0, 0] == pytest.approx(1 / series_ohms, rel=1e-9)
+    assert y[0, 1] == pytest.approx(-1 / series_ohms, rel=1e-9)
+
+    # The Z matrix genuinely does not exist, and asking for it still says so.
+    with pytest.raises(np.linalg.LinAlgError):
+        tp.s_to_z(s, z0)
+
+
+def test_the_reader_refuses_other_port_counts_and_parameter_types():
+    """A 19-number row is a 3-port file; truncating it to four terms is not a read."""
+    three_port = "# HZ S RI R 50\n1.4e9 " + " ".join(["0.1"] * 18) + "\n"
+    with pytest.raises(ValueError, match="no two-port data rows"):
+        tp.parse_touchstone_2port(three_port)
+    with pytest.raises(ValueError, match="Y-parameters, not S-parameters"):
+        tp.parse_touchstone_2port("# HZ Y RI R 50\n1.4e9 0 0 1 0 1 0 0 0\n")
+
+
+def test_is_reciprocal_survives_measured_data():
+    """A real cable's S12 and S21 never agree to nine decimals."""
+    pad = tp.attenuator(loss_db=3.0, freq_hz=FREQ)
+    noisy = pad.s.copy()
+    noisy[:, 0, 1] += 1e-3  # VNA-scale disagreement between the two directions
+    measured = tp.TwoPort(freq_hz=FREQ, s=noisy)
+    assert measured.is_reciprocal
+    assert "reciprocal (passive)" in measured.summary()
+    # It still catches an actual transpose, which is the point of the check.
+    assert not tp.ideal_amplifier(gain_db=20.0, freq_hz=FREQ).is_reciprocal

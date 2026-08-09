@@ -59,6 +59,22 @@ adding its test file to that line** — and then reading the log to confirm the 
 
 ---
 
+## An exactly-analysable anchor can be exactly the wrong anchor
+
+N0's anchors were a matched attenuator: three gains equal to −L dB, cascades summing in dB,
+round trips at machine precision. All exact, all externally checkable, all green — and a
+matched network is precisely the case where insertion loss and available loss are the same
+number, so the one real physics error in the module was invisible to every one of them.
+
+An anchor has to be **exact and representative**. The fix was a bare series resistor: still
+exactly analysable, but badly mismatched, so the two definitions separate by a factor of two.
+
+The pattern generalizes. Ask of any clean anchor: *what does its cleanliness make degenerate?*
+An ideal component is usually clean because several distinct quantities have collapsed into
+one, and each collapse is a bug that cannot be seen.
+
+---
+
 ## Disagreements are information; tuning them away destroys it
 
 Published figures live in `Template.published` as **cross-checks**, never restated as our

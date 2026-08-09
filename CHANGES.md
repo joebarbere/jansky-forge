@@ -59,6 +59,46 @@ confusion the module exists to prevent.
 - `scikit-rf` reads the same `.s2p` and agrees on every S-parameter, **including which index
   S21 lands in**. CI installs the extra so this runs rather than skips.
 
+### Fixed after an independent RF review
+An adversarial review of the two-port math (Pozar/Gonzalez, cross-checked numerically against
+`scikit-rf` with complex, non-reciprocal, mismatched networks) confirmed the three gains, all
+four conversions, the cascade order and the noise model — and found **one real physics
+error** plus a set of "silently wrong instead of raising" gaps. Every one of them passed the
+original tests, because every original anchor was a *matched* network. That is
+[honesty invariant 8](docs/honesty-invariants.md) for the third time.
+
+- **`as_stage` used insertion loss where Friis needs available loss.** A passive network at
+  290 K has `F = 1/G_A` — the **available** gain — not `1/|S21|²`. These agree only when the
+  network is matched, and a measured `.s2p` never is. A bare series 200 Ω in a 50 Ω system
+  has `|S21|² = −9.54 dB` but `G_A = −6.99 dB`; the old code reported **2320 K where the
+  true excess noise temperature is 1160 K**, a factor of two, and it did not cancel
+  downstream because the gain was wrong too. Confirmed against a Thévenin analysis with no
+  S-parameters involved: available gain 50/250 = 1/5, so `F = 5` and `Te = 4 × 290`.
+  `as_stage` now takes `gamma_source`, because available gain depends on it and a hidden
+  default is not an answer.
+- **`NoiseParameters` did not carry its own reference impedance.** Touchstone stores Rn
+  *normalized* to the file's Z0, so a 75 Ω file's noise figure was computed against 50 Ω.
+  The CLI happened to pass the right value; the documented library call did not.
+- **A potentially unstable device returned negative power ratios.** With `|Γout| > 1` the
+  available-gain expression goes negative and the CLI fed it to `log10`. It now raises with
+  the diagnosis — the device is oscillating, not amplifying — and the CLI prints that instead
+  of a traceback. This is the natural hook for N1.
+- **`noise_figure_db` extrapolated silently.** `np.interp` clamps, so a 1.3–1.5 GHz part
+  returned a plausible noise figure at 10 GHz. `TwoPort.at` already refused to extrapolate;
+  now so does this.
+- **The reader accepted files it should not.** A 19-number row is a 3-port file and was
+  truncated to its first four parameters; `# GHZ Y RI` was read as S-parameters. Both now
+  raise. (The parameter-type check is shared with M7's one-port reader.)
+- **`s_to_y` went through Z.** A bare series impedance has a Y matrix and *no* Z matrix, so
+  `inv(s_to_z(...))` raised on a network whose answer exists. Now computed directly as
+  `Y = (1/Z0)(I − S)(I + S)⁻¹`.
+- **`is_reciprocal` used an absolute 1e-9 tolerance**, so any *measured* passive network read
+  as "non-reciprocal (active)" — the check turning to noise precisely on the files it exists
+  for. Now relative.
+- `NoiseParameters` validates `|Γopt| < 1`; `Γopt = −1` was a bare `ZeroDivisionError`.
+- `TwoPort.at` now documents that interpolating a network with fast phase rotation aliases:
+  on a 10 MHz grid a lossless 10 m line reads `|S21| = 0.017` between samples.
+
 ### Fixed
 - **The scikit-rf cross-check skipped in CI on the first push.** The optional-extras job
   installs the dependency and then names test files explicitly; `tests/test_twoport.py` was
