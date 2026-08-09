@@ -227,11 +227,16 @@ Rigor without the entanglement, and the output is inspectable.
 
 ---
 
-## The same bug three times means the shape is wrong
+## The same bug four times means the shape is wrong
 
 Assigning two unrelated dataclasses to one variable across `if/else` branches broke mypy in
-`cli.py` twice and `server/app.py` once. Recorded in the code where it happened, with the
-count — a mistake made three times is a signal about the design, not about carelessness.
+`cli.py` twice, `server/app.py` once, and `receivers.py` once. Recorded in the code where it
+happened, with the count — a mistake made four times is a signal about the design, not about
+carelessness.
+
+The fix is always the same and always cheap: **branch and return, do not branch and merge.**
+By the fourth occurrence the right response was to write it here rather than to keep noting
+it in comments.
 
 ---
 

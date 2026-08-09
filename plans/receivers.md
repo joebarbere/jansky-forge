@@ -63,10 +63,17 @@ the antenna track — this is one package.
 |---|---|---|
 | `v0.11.0` ✅ | **N0 — Two-port foundations** | `.s2p` reading with noise data, S↔Z↔Y↔ABCD, the three gain definitions, two-port cascade. The vocabulary everything else is written in |
 | `v0.12.0` ✅ | **N1 — Stability** | Rollett K and Δ, the μ-factor, stability circles, unconditional vs conditional. **The highest-value single milestone** |
-| `v0.13.0` | **N2 — Noise** | The noise-parameter model, noise circles, and the noise-versus-gain match tradeoff that *is* LNA design |
-| `v0.14.0` | **N3 — Matching and the design loop** | Input matched toward Γopt, output conjugate; resulting F, gain and stability reported together |
-| `v0.15.0` | **N4 — System integration** | **The point of the track.** This LNA + this feed + this cable → Tsys. "Would a better LNA help?" answered against a real antenna |
-| `v0.16.0` | **N5 — Measurement** | Y-factor noise figure, gain measurement, measured-versus-predicted NF |
+| — | **N2 — Noise** | The noise-parameter model, noise circles, and the noise-versus-gain match tradeoff that *is* LNA design. **Skipped, not cancelled** |
+| — | **N3 — Matching and the design loop** | Input matched toward Γopt, output conjugate; resulting F, gain and stability reported together. **Skipped, not cancelled** |
+| `v0.13.0` | **N4 — Receiver selection** | **The point of the track.** A catalogue of amplifiers, digitizers and clocks with enforced provenance — amateur to state of the art — and comparison against *your* antenna. "Would a better LNA help?" answered with numbers |
+| — | **N5 — Measurement** | Y-factor noise figure, gain measurement, measured-versus-predicted NF |
+| — | **N6 — Whole-system comparison** | Compare complete stations, not parts. Requested 2026-08-09; deferred deliberately, see §6 |
+| — | **N7 — Algorithms** | What processing buys, and what it cannot buy back. See §6 |
+
+**N4 took `v0.13.0`, not `v0.15.0`.** N2 and N3 were skipped, not cancelled: they are for
+synthesising an amplifier from a bare transistor, and the practical value is N0+N1+N4. Tags
+are allocated in ship order (see `CLAUDE.md`), so N2/N3 keep their content and lose their
+numbers.
 
 ### N0 — Two-port foundations
 
@@ -161,6 +168,35 @@ measured Y-factor.
 
 **Anchor:** a bench measurement on a real amplifier.
 
+### N4 — Receiver selection (expanded 2026-08-09)
+
+Originally scoped as "an `Amplifier` becomes a `Stage`". Expanded on request to the question
+people actually have when they open a shopping page: **which of these should I buy, what did
+the previous generation manage, and what is the best anyone can do?**
+
+- **A parts catalogue** with the antenna catalogue's provenance discipline (`audit()` must
+  print nothing): amplifiers, digitizers, and frequency standards.
+- **Four availability tiers** — amateur, professional, research, historical. Including a 2 K
+  cryogenic InP HEMT is honest and useful *because* it is labelled unbuyable: it tells you
+  what the ceiling is, and how much of the gap is yours to close.
+- **The historical axis.** NRAO's own numbers: 25 K at 4.5 GHz in 1980, 2 K at 4 GHz by 2003.
+  A hobbyist's 58.7 K room-temperature LNA today is worse than a 1980 observatory's — and
+  that comparison is the point, not an insult.
+- **Comparison against a real antenna**, since a receiver number alone answers nothing.
+
+**Anchors.** Every catalogue number is a published figure with a URL, cross-checked in both
+directions (noise figure ↔ noise temperature) and against the quantum limit `hf/k` = 0.0682 K
+at 1420.4 MHz — the floor no amplifier of any budget can pass.
+
+**The line invariant 2 draws.** A datasheet's *headline* noise figure, cited with its URL, is
+a published fact of the same standing as "Cas A is 1768 Jy at epoch 2016". Fmin, Γopt, Rn and
+S-parameters are **measurement-grade design data** and are still never shipped, never
+invented, and never inferred from a headline number. The catalogue does system budgets; it
+does not do amplifier design, and there is no path from a catalogue entry to a `TwoPort`.
+
+**A manufacturer claim is not a measurement.** Catalogue figures are labelled as claims and
+must never be shown in the same field as anything from M7/M8 (invariant 5).
+
 ## 4. Recommended stopping point
 
 **N0 + N1 + N4 is the whole practical value at roughly a third of the work.** Read any
@@ -182,3 +218,25 @@ recorded as a decision in the plan rather than left looking unfinished.
 3. Is `scikit-rf` promoted from optional to required for this track, or does the native
    reader stay the default with scikit-rf as the cross-check? *(Leaning: native default, same
    as M7 — a vendor `.s2p` should be readable with numpy alone.)*
+
+## 6. Deferred deliberately
+
+### N6 — Whole-system comparison
+
+Requested 2026-08-09, and deferred on the requester's own suggestion. Comparing complete
+stations — antenna, feed, front end, digitiser, clock, site — is a different problem from
+comparing parts, because the answer stops being a number and becomes a *ranking under
+assumptions*, and the assumptions do more work than the hardware. It wants N4's catalogue
+underneath it and it wants deciding what "better" means. Doing it badly would be worse than
+not doing it, since a system-level verdict is exactly the kind of output people quote.
+
+### N7 — Algorithms
+
+Also on the table, and also not here. Coherent dedispersion, polyphase filterbanks, RFI
+excision, FDMT: real gains, and gains of a different kind — they change what you can extract
+from data you already have, rather than what arrives at the ADC. The honest framing is a
+constraint, and it belongs in the module when it is written: **processing cannot buy back
+sensitivity the front end never collected.** A better algorithm and a colder LNA are not
+interchangeable, and a tool that let you trade one for the other would be lying. Note that
+the sibling `jansky-research` already has real work here (`torchfdmt`, `torchdsp`), so this
+may belong there rather than in a design tool.

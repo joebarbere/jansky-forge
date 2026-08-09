@@ -520,3 +520,66 @@ def test_network_is_quiet_about_stability_for_a_passive_part(tmp_path, capsys):
     )
     assert cli.main(["network", str(path)]) == 0
     assert "stability (N1)" not in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------------------
+# N4 -- the parts catalogue and receiver selection
+# ---------------------------------------------------------------------------------------
+
+
+def test_parts_lists_every_tier_and_labels_the_figures_as_claims(capsys):
+    assert cli.main(["parts"]) == 0
+    out = capsys.readouterr().out
+    assert "AMPLIFIERS" in out and "DIGITIZERS" in out and "CLOCKS" in out
+    assert "sawbird-h1" in out and "cryo-inp-hemt" in out
+    assert "[amateur]" in out and "[research]" in out and "[historical]" in out
+    assert "needs 4 K cooling" in out  # the dewar is never hidden
+    assert "CLAIM, not a measurement" in out  # invariant 5, at the point of display
+
+
+def test_parts_filters_by_kind_and_availability(capsys):
+    assert cli.main(["parts", "--kind", "clock"]) == 0
+    out = capsys.readouterr().out
+    assert "CLOCKS" in out and "AMPLIFIERS" not in out
+
+    assert cli.main(["parts", "--kind", "amplifier", "--availability", "amateur"]) == 0
+    out = capsys.readouterr().out
+    assert "sawbird-h1" in out
+    assert "cryo-inp-hemt" not in out  # not something you can buy
+
+
+def test_choose_receiver_ranks_against_a_real_antenna(capsys):
+    assert (
+        cli.main(
+            [
+                "choose-receiver",
+                "--template",
+                "discovery-dish",
+                "--pre-lna-loss-db",
+                "0.5",
+                "--have",
+                "sawbird-h1",
+            ]
+        )
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "CANDIDATES" in out
+    assert "Tsys" in out and "SEFD" in out and "G/T" in out
+    assert "the dewar is the project" in out
+    assert "quoted at 1900 MHz" in out  # the wrong-frequency caveat survives
+    # The advice must rank an achievable action, not an impossible one.
+    assert "impossible, not a target" in out
+    assert "removing the loss ahead of it" in out
+
+
+def test_choose_receiver_works_from_a_bare_diameter(capsys):
+    assert cli.main(["choose-receiver", "--diameter-m", "3.0", "--freq-mhz", "1420"]) == 0
+    out = capsys.readouterr().out
+    assert "3 m dish" in out
+    assert "CANDIDATES" in out
+
+
+def test_choose_receiver_needs_an_antenna():
+    with pytest.raises(SystemExit, match="needs --template or --diameter-m"):
+        cli.main(["choose-receiver"])

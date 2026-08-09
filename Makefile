@@ -31,6 +31,7 @@ catalog: ## List the catalog (the M0 smoke: does the package actually work?)
 
 audit: ## Catalog provenance audit — must print nothing
 	uv run python -c "from jansky_forge import catalog; [print(m) for m in catalog.audit()]"
+	uv run python -c "from jansky_forge import receivers; [print(m) for m in receivers.audit()]"
 
 build: ## Build sdist + wheel into dist/
 	uv build

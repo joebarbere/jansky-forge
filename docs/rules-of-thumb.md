@@ -170,6 +170,28 @@ spillover is costing you 21 K, fix the feed first. Compare terms before buying p
 
 ---
 
+## Receivers and parts
+
+| Quantity | Value |
+|---|---|
+| Quantum noise limit | `hf/k` — **0.0682 K** at 1420.4 MHz |
+| Best cryogenic InP HEMT | ~2.2 K at 4 K physical — still **32×** the quantum limit |
+| NRAO, 1980 | 25 K at 4.5 GHz |
+| NRAO, 2003 | 2 K at 4 GHz |
+| Typical amateur module today | 0.8 dB NF = **58.7 K**, room temperature |
+| ADC dynamic range | `6.02·bits + 1.76` dB — 50 dB at 8 bits, 74 dB at 12 |
+| Clock error as velocity | `Δf/f × c` — 1 ppm = **300 m/s** |
+
+**Noise figure in dB is not "nearly nothing" near zero.** 0.05 dB is 3.4 K; 0.3 dB is 20.7 K;
+0.8 dB is 58.7 K. The dB scale compresses exactly where amateurs shop.
+
+**The backend stops mattering above ~29 dB of front-end gain** (1 K tolerance, 6 dB backend).
+
+**A 1980 observatory front end beats a 2019 hobby module.** That is why the amateur hydrogen
+line works: the sky is bright and the bar was never 2 K.
+
+---
+
 ## Stability
 
 | Quantity | Formula |

@@ -180,6 +180,30 @@ answer, because the terms left out are the warm ones.
 
 ---
 
+## "Should I buy a better LNA?"
+
+```bash
+jansky-forge choose-receiver --template discovery-dish --pre-lna-loss-db 0.5 --have sawbird-h1
+```
+
+The output is deliberately in two parts, and the second is the useful one:
+
+1. **Candidates**, ranked by the Tsys they give **on your antenna** — not by noise figure,
+   which answers nothing on its own. Each carries its own caveats: a figure quoted at the
+   wrong frequency, a part outside its specified range, a dewar you would have to build.
+2. **The verdict**, which prices the ceiling (an impossible 0 K receiver), the best part you
+   could actually order, fixing spillover, and removing the loss ahead of the amplifier —
+   then ranks **only the things you can do**.
+
+The common outcome surprises people: with half a dB of coax ahead of the amplifier, replacing
+the cable beats replacing the amplifier. Loss in front of the LNA is counted at full weight.
+
+**What it will not do:** turn a catalogue entry into design data. These are headline figures
+for a system budget. To know whether a part is stable or how to match it, you need its real
+S-parameters — see `network`.
+
+---
+
 ## "Is this amplifier going to oscillate?"
 
 ```bash
