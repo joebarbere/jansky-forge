@@ -60,9 +60,38 @@ If any of those disagree, **that is the interesting result**, and it belongs in
 
 ---
 
+## The receiver track, running in parallel
+
+Since this document was written, a second track started: **N0–N5**, planned in
+[`plans/receivers.md`](../plans/receivers.md). It closes the gap M4 opened — the tool could
+say *"your system is receiver-limited"* and had nothing to offer next.
+
+**N0 has shipped** (`v0.11.0`): two-port Touchstone, S↔Z↔Y↔ABCD, the three gain definitions,
+cascade, and the seam back to M4's noise budget.
+
+**N1 — stability is next**, and is the highest-value single milestone in the track. Rollett's
+K and Δ, the μ-factor, and stability circles. An unstable amplifier oscillates, and the
+symptom is a weekend of confusion — strange noise floors, spurs, behaviour that changes when
+you touch the case. The check is cheap and the anchor is clean (Pozar ch. 12), which is why
+it goes before noise rather than after.
+
+**The track's recommended stopping point is N0 + N1 + N4** — read any vendor `.s2p`, know
+whether the part is stable, and answer *"does a better LNA help my actual system?"* against
+your own antenna. N2 and N3 (noise circles, matching synthesis) are for building an amplifier
+from a bare transistor, which most people should not do. Stopping after N4 is a decision, not
+an abandonment.
+
+**It does not move the v1.0.0 gate.** That is still a build.
+
+Cryogenic and detailed LNA noise modelling, listed in the post-1.0 roadmap below, is
+superseded by this track.
+
+---
+
 ## Gaps worth closing next
 
-Ordered by how much each would improve the tool, not by effort.
+Ordered by how much each would improve the tool, not by effort. These are all **antenna**
+track; the receiver track has its own ordering above.
 
 ### 1. Conical horn patterns — deferred twice
 
@@ -102,7 +131,7 @@ work.
 
 | Idea | Note |
 |---|---|
-| **M10 — sweeps and optimization** | Parametric sweeps, Nelder-Mead/GA over any parameter set, constraint-driven design ("maximize G/T subject to D ≤ 1.2 m and it must fit through a door"), Pareto fronts |
+| **M10 — sweeps and optimization** (unnumbered now; see `CLAUDE.md` on tag allocation) | Parametric sweeps, Nelder-Mead/GA over any parameter set, constraint-driven design ("maximize G/T subject to D ≤ 1.2 m and it must fit through a door"), Pareto fronts |
 | **M11 — full-wave export** | Generate runnable openEMS decks; import results back for comparison |
 | **M12 — site and environment** | Terrain and horizon masks, RFI-aware siting fed by `jansky-observe` HackRF sweeps, wind loading, radome effects |
 | **M13 — reports and provenance** | A design-report PDF and a citable design bundle: the `jansky-research` evidence standard applied to hardware |
@@ -110,7 +139,7 @@ work.
 | Interferometry | Array layout and uv coverage |
 | Phased arrays | Beamforming |
 | Rotator integration | With `jansky-observe`'s M9 rotator control |
-| Cryogenic / LNA noise | Detailed front-end modelling |
+| ~~Cryogenic / LNA noise~~ | Superseded — this became the receiver track (N0–N5) |
 | Public catalogue contributions | Currently PR-only while the provenance discipline is young |
 
 **Parking lot** (decisions, not oversights): 3D geometry viewer, STL export for printed feeds,

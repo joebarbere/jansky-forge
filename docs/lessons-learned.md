@@ -43,9 +43,52 @@ optional path in this project is **installed in CI so its tests actually run**:
 
 - the `jansky` course, for the radiometer cross-check (M4)
 - `pymininec`, for Tier-2 validation (M6)
-- `scikit-rf`, for the Touchstone reader cross-check (M7)
+- `scikit-rf`, for the Touchstone reader cross-check (M7 one-port, N0 two-port)
 
 Verify in the CI log that they *passed* rather than skipped. It has been checked each time.
+
+**And the lesson caught itself at N0.** The CI step installs the extras and then names the
+test files explicitly. A new module's tests are not in that list, so N0's scikit-rf
+cross-check — written specifically to run in CI — skipped on the first push, while the job
+went green. Checking the log is what found it.
+
+The naming is the flaw: an allow-list has to be extended by whoever adds a test, and nothing
+reminds them. It stays for now because the alternative (run the whole suite again with extras
+installed) doubles a step that already takes most of the job, but **adding a milestone means
+adding its test file to that line** — and then reading the log to confirm the count went up.
+
+---
+
+## An exactly-analysable anchor can be exactly the wrong anchor
+
+N0's anchors were a matched attenuator: three gains equal to −L dB, cascades summing in dB,
+round trips at machine precision. All exact, all externally checkable, all green — and a
+matched network is precisely the case where insertion loss and available loss are the same
+number, so the one real physics error in the module was invisible to every one of them.
+
+An anchor has to be **exact and representative**. The fix was a bare series resistor: still
+exactly analysable, but badly mismatched, so the two definitions separate by a factor of two.
+
+The pattern generalizes. Ask of any clean anchor: *what does its cleanliness make degenerate?*
+An ideal component is usually clean because several distinct quantities have collapsed into
+one, and each collapse is a bug that cannot be seen.
+
+---
+
+## Review the fix, not just the code
+
+N0's first review found a factor-of-two physics error. The fix was correct — and introduced
+a regression that rejected every lossless matching network, because the corrected expression
+`|S21|²/(1 − |S22|²)` is a cancellation where the original `|S21|²` was not. A second pass
+over the fixes caught it, along with a docstring written backwards and an API whose default
+was quietly optimistic.
+
+A fix is written under time pressure, in a narrowed frame, by someone who has just been
+shown they were wrong. That is not the state in which to skip the check.
+
+Cheap habit: after fixing, ask what the *new* expression does at the boundaries the old one
+never reached. Cancellation, division by a term that can vanish, and a tolerance that was
+implicit before are the three that recur.
 
 ---
 

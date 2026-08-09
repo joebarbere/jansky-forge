@@ -5,6 +5,156 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.11.0] — N0, Two-port foundations
+
+The first milestone of the **receiver track** ([`plans/receivers.md`](plans/receivers.md)).
+M4 taught the tool to say *"your system is receiver-limited"* and then had nothing to offer.
+This is the vocabulary in which the offer will be written.
+
+It is deliberately foundational and deliberately dull: a `TwoPort`, the conversions between
+the ways of describing one, the three gain definitions, and a cascade. Everything in N1–N5 is
+written in these terms, so a mistake here would propagate silently through all of it — which
+is why every anchor below is *exact* rather than approximate.
+
+### Added
+- **`twoport`** — `TwoPort` (an S-matrix per frequency, plus provenance), `NoiseParameters`
+  with the full `F = Fmin + (4·Rn/Z0)·|Γs − Γopt|²/((1−|Γs|²)|1+Γopt|²)` model, S ↔ Z ↔ Y ↔
+  ABCD conversions, input/output reflection coefficients, the three gain definitions,
+  `cascade` via ABCD, and exactly-known constructors (`attenuator`, `transmission_line`,
+  `ideal_amplifier`) to test against.
+- **Native two-port Touchstone reading** — `.s2p` including the optional noise block, with no
+  network-analysis library required. A vendor's file should be readable with NumPy alone, the
+  same judgement as M7's one-port reader.
+- **`jansky-forge network <file.s2p>`** — read a part's data and say what it is: S-parameters,
+  all three gains, and the noise block if the file carries one.
+- **`as_stage`** — the seam back to M4. A passive network becomes a `sensitivity.Stage` whose
+  noise temperature is derived from its loss, so the Friis cascade written at M4 consumes
+  two-port data directly.
+- **`measure.parse_option_line`** — the Touchstone `#` line, factored out of M7's reader and
+  shared, since it is identical for every port count. This settles open question 1 in the
+  receiver plan: the two readers share a parser and nothing else.
+
+### The trap this milestone exists to encode
+**Two-port Touchstone is ordered `S11 S21 S12 S22` — S21 *before* S12**, the historical
+exception to row-major ordering. Reading it the obvious way transposes the device. For a
+reciprocal attenuator that is invisible; for an amplifier it reports the reverse isolation as
+the gain, which in the test file is a 60 dB error that still looks like a plausible number.
+`is_reciprocal` exists partly as a smoke alarm for it: an amplifier that reads reciprocal has
+almost certainly been read wrong.
+
+### A wrong claim, caught in its own output
+The first draft of the CLI printed *"these are equal because both terminations are matched"*
+under the three gains — and then printed three different numbers. Matched terminations are not
+enough: with `Γs = ΓL = 0` you get `G_T = |S21|²` but `G_A = |S21|²/(1−|S22|²)` and
+`G_P = |S21|²/(1−|S11|²)`, so they agree only when the **device** is matched too. The text now
+says so, and a test pins all three closed forms. It would have taught the reader precisely the
+confusion the module exists to prevent.
+
+### Verified before the code was written
+- Matched 3 dB pad, both ports terminated: all three gains `−3.0000 dB`, exactly.
+- 3 dB + 2 dB cascaded → `S21 = −5.0000 dB`, exactly.
+- S → ABCD → S round trip, maximum error `1.11e-16`; S → Z → S, `2.22e-16`.
+- A 3 dB passive loss gives `288.63 K` by both `twoport.as_stage` and M4's independent
+  `loss_to_temperature_k` — the two routes to one answer that ties this milestone to that one.
+- `scikit-rf` reads the same `.s2p` and agrees on every S-parameter, **including which index
+  S21 lands in**. CI installs the extra so this runs rather than skips.
+
+### A second review pass, on the first pass's fixes
+The fixes below were themselves reviewed. Two central ones — available gain in `as_stage`,
+and the direct-form `s_to_y` — were confirmed correct (the latter to 4e-16 against
+`scikit-rf` across nine networks and three reference impedances, checked against both a
+transpose and a sign flip). The pass found one **regression introduced by the fix**, one
+docstring stated backwards, and one API that was misleading by default:
+
+- **Regression: `as_stage` rejected lossless passive networks.** Computing G_A through
+  `|S21|²/(1 − |S22|²)` is a cancellation, so an ideal transformer or lossless matching
+  section lands a few ulp either side of unity — and a bare `gain_db > 0` test then called
+  it an amplifier, with the self-contradictory message *"this network has +0.0 dB of gain,
+  so it is not passive"*. Whether an ideal matching network worked came down to the last
+  bit. Now tolerant, and a matching section is exactly what an antenna tool puts in a chain.
+- **`as_stages()` — a chain helper, because the default was quietly optimistic.** Available
+  gain composes multiplicatively only when each stage is evaluated at the source it actually
+  sees. Evaluating each in isolation at Γs = 0 under-reports system temperature by **1.76 dB
+  at a VSWR 1.5 interface and 4.8 dB at VSWR 3** — reporting a *lower* Tsys than the truth,
+  which is wrong in the one direction that matters. A docstring warning was not an adequate
+  answer to that, since a user cannot know they should care without doing the calculation
+  the tool exists to do. `as_stages` threads Γout, and reproduces the exact
+  cascaded-S-matrix answer to 1e-9.
+- **`as_stage` now derives an active stage's noise from the file's noise block** when it has
+  one. Fmin is only achieved at Γopt, so pinning a single datasheet number ignores the
+  source match — 48.1 K at a matched source versus 22.2 K at Γopt for the test part.
+- **The `s_to_y` docstring had series and shunt backwards.** A *series* element is the one
+  with a Y matrix and no Z; a shunt element is the mirror case, and the new code correctly
+  raises on it. The better argument for the fix also emerged: the old route mostly did not
+  raise at all, it returned a plausible wrong number — 0.003906 S where the truth is 0.005 S,
+  a **21.9% error with no exception**, because an ill-conditioned matrix inverts to something
+  that looks fine. The test previously asserted `LinAlgError`, which only occurs at the one
+  ratio where `I − S` is *exactly* singular; it now asserts the conditioning instead of
+  pinning a floating-point accident.
+- **The instability message no longer accuses a cable of oscillating.** A measured passive
+  `.s2p` can show `|S22| = 1.0001` from ordinary calibration overshoot near total reflection,
+  and the previous wording would have sent someone hunting a fault that is in the calibration.
+- `available_gain` and `operating_gain` now reject `|Γ| ≥ 1` terminations, as
+  `noise_figure_db` already did — `gamma_source=1.0` silently returned `+0.000000 dB`.
+- Removed the `z0_ohm` override on `noise_figure_db`. `Rn` is stored in ohms and only the
+  file's own Z0 is ever correct, so the parameter could only reinstate the bug just fixed.
+
+Confirmed clean by that pass, with no changes needed: the `|Γout| ≥ 1` guard (zero false
+trips across 90 000 passive networks and terminations), the noise-parameter Z0 handling
+(0 to 8e-16 dB against `scikit-rf` at 50 Ω and 75 Ω), and parser strictness (16 `.s2p` and
+11 `.s1p` variants including CRLF, inline comments and NanoVNA output all still read).
+
+### Fixed after an independent RF review
+An adversarial review of the two-port math (Pozar/Gonzalez, cross-checked numerically against
+`scikit-rf` with complex, non-reciprocal, mismatched networks) confirmed the three gains, all
+four conversions, the cascade order and the noise model — and found **one real physics
+error** plus a set of "silently wrong instead of raising" gaps. Every one of them passed the
+original tests, because every original anchor was a *matched* network. That is
+[honesty invariant 8](docs/honesty-invariants.md) for the third time.
+
+- **`as_stage` used insertion loss where Friis needs available loss.** A passive network at
+  290 K has `F = 1/G_A` — the **available** gain — not `1/|S21|²`. These agree only when the
+  network is matched, and a measured `.s2p` never is. A bare series 200 Ω in a 50 Ω system
+  has `|S21|² = −9.54 dB` but `G_A = −6.99 dB`; the old code reported **2320 K where the
+  true excess noise temperature is 1160 K**, a factor of two, and it did not cancel
+  downstream because the gain was wrong too. Confirmed against a Thévenin analysis with no
+  S-parameters involved: available gain 50/250 = 1/5, so `F = 5` and `Te = 4 × 290`.
+  `as_stage` now takes `gamma_source`, because available gain depends on it and a hidden
+  default is not an answer.
+- **`NoiseParameters` did not carry its own reference impedance.** Touchstone stores Rn
+  *normalized* to the file's Z0, so a 75 Ω file's noise figure was computed against 50 Ω.
+  The CLI happened to pass the right value; the documented library call did not.
+- **A potentially unstable device returned negative power ratios.** With `|Γout| > 1` the
+  available-gain expression goes negative and the CLI fed it to `log10`. It now raises with
+  the diagnosis — the device is oscillating, not amplifying — and the CLI prints that instead
+  of a traceback. This is the natural hook for N1.
+- **`noise_figure_db` extrapolated silently.** `np.interp` clamps, so a 1.3–1.5 GHz part
+  returned a plausible noise figure at 10 GHz. `TwoPort.at` already refused to extrapolate;
+  now so does this.
+- **The reader accepted files it should not.** A 19-number row is a 3-port file and was
+  truncated to its first four parameters; `# GHZ Y RI` was read as S-parameters. Both now
+  raise. (The parameter-type check is shared with M7's one-port reader.)
+- **`s_to_y` went through Z.** A bare series impedance has a Y matrix and *no* Z matrix, so
+  `inv(s_to_z(...))` raised on a network whose answer exists. Now computed directly as
+  `Y = (1/Z0)(I − S)(I + S)⁻¹`.
+- **`is_reciprocal` used an absolute 1e-9 tolerance**, so any *measured* passive network read
+  as "non-reciprocal (active)" — the check turning to noise precisely on the files it exists
+  for. Now relative.
+- `NoiseParameters` validates `|Γopt| < 1`; `Γopt = −1` was a bare `ZeroDivisionError`.
+- `TwoPort.at` now documents that interpolating a network with fast phase rotation aliases:
+  on a 10 MHz grid a lossless 10 m line reads `|S21| = 0.017` between samples.
+
+### Fixed
+- **The scikit-rf cross-check skipped in CI on the first push.** The optional-extras job
+  installs the dependency and then names test files explicitly; `tests/test_twoport.py` was
+  not on the list, so the guard written to run in CI did not run while the job went green.
+  This is the project's own "a guard that only ever skips is not a guard" lesson catching
+  itself — found by reading the log, which is the practice that lesson prescribes.
+- `cascade` raised NumPy's `operands could not be broadcast` instead of its own message when
+  two networks were on different-length grids: `np.allclose` *raises* on mismatched shapes
+  rather than returning `False`, so the length check has to come first. Found by the test
+  written for the error message, not by the error.
+
 ### Added
 - `docs/getting-started.md` — installation, the three-tier mental model, a full command
   reference, and library quickstarts for every module. **Every command and code snippet in

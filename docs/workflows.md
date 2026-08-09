@@ -143,6 +143,43 @@ efficiency (which needs that calibration to mean anything).
 
 ---
 
+## "My vendor sent me an .s2p. What is this part?"
+
+```bash
+jansky-forge network lna.s2p --freq-mhz 1420
+```
+
+Read the output in this order:
+
+1. **Is it reciprocal?** An amplifier that reads reciprocal has almost certainly been read
+   wrong — two-port Touchstone is ordered `S11 S21 S12 S22`, S21 *before* S12.
+2. **Which gain?** Three numbers are printed because they are three different quantities.
+   Noise-figure work wants **available** gain.
+3. **Is there a noise block?** Without one, no noise figure can be stated — and none will be
+   invented.
+
+Then put it in the system, where the question is actually answerable:
+
+```python
+from jansky_forge import twoport, sensitivity as sens
+
+amp = twoport.read_touchstone_2port("lna.s2p")
+pigtail = twoport.attenuator(loss_db=0.2, freq_hz=amp.freq_hz)
+# as_stages threads each stage's real source match. Doing it stage by stage is optimistic.
+receiver_k = sens.cascade_noise_temperature_k(
+    twoport.as_stages([pigtail, amp], 1.4204e9, names=("pigtail", "LNA")),
+)
+tsys = sens.system_temperature(freq_hz=1.4204e9, receiver_k=receiver_k,
+                               spillover_efficiency=0.93)
+print(tsys.summary())      # says which term dominates -- that is the one to fix
+```
+
+**The point is the last line.** If spillover dominates, a better amplifier is the wrong
+purchase. `receiver_k` is the receiver alone and is not Tsys; confusing the two flatters the
+answer, because the terms left out are the warm ones.
+
+---
+
 ## "Add a build to the catalogue"
 
 1. Find the **primary** source. A forum post repeating a number is not a source.

@@ -111,7 +111,7 @@ The same standard as the sibling repos, applied to hardware:
 
 ## Documentation
 
-**[docs/](docs/)** — ten milestones of accumulated knowledge, organised for lookup.
+**[docs/](docs/)** — eleven milestones of accumulated knowledge, organised for lookup.
 
 New here? **[Getting started](docs/getting-started.md)** →
 **[Traps](docs/traps.md)** → **[Workflows](docs/workflows.md)** is about twenty minutes and
@@ -124,6 +124,16 @@ Also: [rules of thumb](docs/rules-of-thumb.md) (numbers with their validity cond
 [next steps](docs/next-steps.md) (what v1.0.0 requires).
 
 ## Status
+
+**N0 (`v0.11.0`) — two-port foundations.** The start of the
+[receiver track](plans/receivers.md): read a vendor's `.s2p`, including its noise block, with
+NumPy alone. `TwoPort`, S↔Z↔Y↔ABCD, the three gain definitions that are routinely confused,
+and a cascade that hands straight to M4's Friis chain, so a passive network's noise
+temperature comes out of its loss without being asserted twice.
+
+It encodes one file-format trap worth the milestone on its own: two-port Touchstone is
+ordered **`S11 S21 S12 S22`** — S21 before S12 — and reading it row-major transposes the
+device, reporting an amplifier's reverse isolation as its gain.
 
 **M9 (`v0.10.0`) — the interactive UI.** `jansky-forge serve` gives a catalogue browser and a
 slider-driven horn designer that recomputes live. No CDN and no build step, so it works

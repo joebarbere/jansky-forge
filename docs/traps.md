@@ -144,6 +144,56 @@ that no internal consistency check catches. → [Lessons learned](lessons-learne
 
 At 21 cm in WR-650 they differ by **16 mm** — enough to ruin a match.
 
+### Touchstone two-port data is ordered `S11 S21 S12 S22`
+
+**S21 comes before S12** — the historical exception to row-major ordering, and it applies to
+two-port files only. Reading a `.s2p` the obvious way transposes the device:
+
+- For a **reciprocal** network (any passive one) `S12 = S21`, so the bug is *invisible*.
+- For an **amplifier** it reports the reverse isolation as the gain. In this project's test
+  file that is a **60 dB error** that still looks like a number you might believe.
+
+Smoke alarm: `TwoPort.is_reciprocal`. An amplifier that reads reciprocal has almost certainly
+been read wrong.
+
+### Friis wants **available** gain, not insertion loss
+
+A passive network at 290 K has `F = 1/G_A`. `G_A` is the **available** gain, which is
+`|S21|²/(1 − |S22|²)` for a matched source — not `|S21|²`. They coincide only when the
+network is matched, and measured data never is.
+
+A bare series 200 Ω in a 50 Ω system: `|S21|² = −9.54 dB`, `G_A = −6.99 dB`. Taking the first
+gives **2320 K where the truth is 1160 K** — a factor of two, in the direction that makes
+your receiver look worse than it is. And the gain is wrong too, so it does not cancel in the
+cascade.
+
+Sanity check with no S-parameters at all: Thévenin says a series 200 Ω fed from 50 Ω leaves
+Voc unchanged and presents 250 Ω, so available gain is 50/250 = 1/5, `F = 5`, `Te = 1160 K`.
+
+### Available gain depends on the source, so a chain must thread it
+
+Evaluating every stage of a receiver at Γs = 0 and multiplying is **not** the chain's
+available gain unless every interface is matched. The error is optimistic — it reports a
+*lower* Tsys than the truth:
+
+| Interface VSWR | Reported | True |
+|---|---|---|
+| 1.5 | 1160 K | 1740 K |
+| 3.0 | 1160 K | 3480 K |
+
+Use `twoport.as_stages()`, which threads each stage's Γout into the next. → `as_stage` alone
+is for a single part on the bench.
+
+### Matched terminations are not enough for the three gains to agree
+
+Transducer, available and operating gain are three different numbers. With `Γs = ΓL = 0`:
+
+    G_T = |S21|²        G_A = |S21|²/(1 − |S22|²)        G_P = |S21|²/(1 − |S11|²)
+
+They collapse to `|S21|²` only when the **device** is matched too — true of an ideal
+attenuator, false of every real amplifier. Say which gain you mean. Noise-figure calculations
+want **available** gain specifically.
+
 ### Polarization components are not the total
 
 A solver's gain array may hold `[component_1, component_2, total]`. Reading index 0 returns

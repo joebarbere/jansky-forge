@@ -38,10 +38,17 @@ Four facts that recur everywhere in this project:
 
 ## Where the project stands
 
-All ten planned milestones (M0–M9) have shipped. **v1.0.0 is not a feature** — it is tagged
-once one antenna has been designed here, built from this tool's fabrication output, and
-measured back in. Every piece of that loop exists; what is left is a build.
-→ [Next steps](next-steps.md)
+All ten planned milestones of the **antenna track** (M0–M9) have shipped. **v1.0.0 is not a
+feature** — it is tagged once one antenna has been designed here, built from this tool's
+fabrication output, and measured back in. Every piece of that loop exists; what is left is a
+build. → [Next steps](next-steps.md)
+
+A second, independent **receiver track** (N0–N5) is now underway, planned in
+[`plans/receivers.md`](../plans/receivers.md). It closes the gap M4 opened: the tool can say
+*"your system is receiver-limited"* and could not say what to do about it. N0 has shipped;
+the milestone the track exists for is **N4**, which answers *"would a better LNA actually
+help, or is spillover my problem?"* against your own antenna. It does **not** move v1.0.0 —
+that gate is still a build.
 
 ## Reference by module
 
@@ -61,3 +68,4 @@ measured back in. Every piece of that loop exists; what is left is a build.
 | `measure` | M7 | Touchstone, reference plane, matching, comparison |
 | `onsky` | M8 | Y-factor, drift scans, transit efficiency, bundle ingest |
 | `server/` | M9 | The web UI |
+| `twoport` | N0 | Two-port networks: `.s2p`, S↔Z↔Y↔ABCD, the three gains, cascade |

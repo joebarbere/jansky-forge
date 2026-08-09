@@ -18,6 +18,10 @@ Where they disagree, the disagreement is deliberate and explained.
 | Balanis Ex 13.5 — ρ_e / ρ_h | 6.1555 / 6.6002 | 6.1555 / 6.6000 | Balanis 3rd ed. p. 779 |
 | Balanis Ex 13.5 — p_e = p_h | 5.4545 | 5.454 | " |
 | Balanis Ex 13.5 — s / t | 0.1576 / 0.6302 | 0.1575 / 0.63 | " |
+| Matched pad, all three gains (N0) | −3.0000 dB | −L exactly | Closed form |
+| 3 dB + 2 dB cascaded (N0) | −5.0000 dB | −5 exactly | Closed form |
+| S → ABCD → S round trip (N0) | 1.11e-16 | 0 | Machine precision |
+| 3 dB passive loss → noise temp (N0) | 288.63 K | 288.63 K | M4's `loss_to_temperature_k`, independently |
 | Balanis Ex 13.5 — D_p | 18.83 dB | 18.78 dB | " (book reads Fresnel tables by hand; ~0.1 dB is honest) |
 | Balanis Ex 13.6 — a₁ / b₁ | 5.974 / 4.712 λ | 6.002 / 4.715 λ | Balanis p. 782 |
 | Conical loss figure at s=3/8 | 2.912 dB | ~2.9 dB | Balanis (13-59b) |
@@ -69,6 +73,13 @@ Where they disagree, the disagreement is deliberate and explained.
 | Gain array index (M6) | `gain[...,0]` | `gain[...,2]` | Read one polarization; produced *impossible negative* Yagi gain |
 | SWR by difference (M6 test) | `\|Z−50\|` | SWR ratio | 20 Ω and 80 Ω look equidistant; SWRs are 2.5 and 1.6 |
 | Windows encoding (M0 CI) | cp1252 default | UTF-8 reconfigure | CLI crashed mid-output for every Windows user |
+| Gain-collapse claim (N0 CLI) | "equal because the terminations are matched" | Equal only when the *device* is matched too | Printed three different numbers under a sentence saying they were equal |
+| **`as_stage` loss definition (N0)** | Insertion loss, `\|S21\|²` | **Available loss, `1/G_A`** | **Factor of two** in the noise temperature of any mismatched passive network — 2320 K where 1160 K is right — and the gain wrong too, so it did not cancel |
+| Noise-parameter Z0 (N0) | Assumed 50 Ω | The file's own Z0 | Rn is stored normalized, so every 75 Ω file's noise figure was mis-scaled |
+| Unstable-device gain (N0) | Negative power ratio | Raise with the diagnosis | `math domain error` from the CLI, or a negative "gain" believed |
+| `s_to_y` route (N0) | `inv(s_to_z(...))` | Direct `(I−S)(I+S)⁻¹/Z0` | LinAlgError on a series element, whose Y matrix exists |
+| `is_reciprocal` tolerance (N0) | absolute 1e-9 | relative | Every *measured* cable labelled "non-reciprocal (active)" |
+| Cascade grid check (N0) | `np.allclose` alone | Shape check first | `np.allclose` raises on mismatched shapes, so a NumPy broadcast error escaped ahead of the message explaining it |
 
 ---
 
@@ -104,5 +115,8 @@ they cannot silently skip:
 
 - `jansky.signals` / `jansky.observing` cross-check (M4)
 - `pymininec` Tier-2 validation, including both Yagi anchors (M6)
-- `scikit-rf` Touchstone reader cross-check (M7)
+- `scikit-rf` Touchstone reader cross-check (M7 one-port, and N0 two-port including which
+  index S21 lands in)
+- N0's `as_stage` against a Thévenin analysis of a series resistor — first principles, no
+  S-parameters involved
 - `catalog.audit()` provenance check (M0), which fails the build on any output

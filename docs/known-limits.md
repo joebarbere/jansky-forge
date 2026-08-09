@@ -22,6 +22,16 @@ gap is a documented decision rather than a surprise.
 
 ## Modelled, with a stated gap
 
+### Receiver design stops at "choose and verify"
+
+The receiver track (N0–N5) reads a part's data, checks it, and integrates it into the system
+budget. It does **not** do bias-network design, PCB layout, thermal design, or EM
+co-simulation, and it never will — those are a different discipline with their own depth.
+
+Nothing here gets you from this tool to a working 1.4 GHz board without a VNA. Ideal
+component values are not a design at that frequency: layout parasitics, ground vias and
+package effects decide whether you get them.
+
 ### Conical horn patterns — deferred twice
 
 Conical **gain** is exact (Balanis's loss figure, cross-checked against an independent
@@ -77,6 +87,12 @@ notes rather than left to folklore.
 ---
 
 ## Data the tool deliberately does not ship
+
+**Transistor and amplifier data.** No Fmin, Γopt, Rn or S-parameters for any real part.
+These come from a vendor's `.s2p` or they are absent — the same judgement as the cable-loss
+table below, and for the same reason: an invented noise parameter inside a noise budget is an
+invented noise budget. `twoport` reads any part you have data for and knows nothing about one
+you do not.
 
 **A cable-loss table.** Coax specifications vary between manufacturers, and between the
 drum's label and the cable on it. A table of invented losses inside a noise budget would be
