@@ -91,7 +91,7 @@ src/jansky_forge/
 ├── feeds.py        feed↔dish matching, taper, spillover, probe      [M3] ✅
 ├── sensitivity/    G/T, SEFD, Tsys, radiometer                      [M4]
 ├── wires.py        dipole, folded, ground reflection, arrays, yagi    [M5] ✅
-├── mom/            Tier-2 backends behind one protocol              [M6]
+├── mom.py          MomBackend protocol, pymininec, NEC deck export    [M6] ✅
 ├── measure/        VNA/Touchstone, measured-vs-predicted            [M7]
 ├── onsky/          Y-factor, drift-scan beam maps, transit SEFD     [M8]
 ├── server/         FastAPI + htmx + canvas, the live UI             [M9]
@@ -131,7 +131,7 @@ workflow exist from M0 so that is true from the first tag. Version lives in
 | `v0.4.0` | **M3 — Dish & feed system** ✅ shipped 2026-08-08 | f/D ↔ subtended angle ↔ edge taper ↔ illumination/spillover as a solved system rather than assumed constants; feed selection and matching (which horn belongs on which dish); offset geometry; strut blockage; mesh transparency; focal-point placement |
 | `v0.5.0` | **M4 — Sensitivity: telescope figures of merit** ✅ shipped 2026-08-09 | G/T, SEFD, Tsys budget (feed + LNA + cable + spillover + sky), the radiometer equation, time-to-detect for a named source, and "how big a dish do I need to see X?" solved backwards. Optional `jansky` dependency lands here for the course's radiometer helpers |
 | `v0.6.0` | **M5 — Wire antennas & arrays** ✅ shipped 2026-08-09 | Dipole, folded dipole, ground-plane, Yagi-Uda, Moxon, helical, log-periodic, plus simple arrays and ground-reflection gain. Unlocks the **Radio JOVE dual-dipole and meteor-scatter yagi catalog entries** held back from M0 |
-| `v0.7.0` | **M6 — Tier-2 MoM validation** | The `MomBackend` protocol + pymininec backend; analytic-vs-MoM pattern overlay; optional subprocess NEC2; an Arcanum-shaped seam. The button that says "check my closed-form answer against real numerics" |
+| `v0.7.0` | **M6 — Tier-2 MoM validation** ✅ shipped 2026-08-09 | The `MomBackend` protocol + pymininec backend; analytic-vs-MoM pattern overlay; optional subprocess NEC2; an Arcanum-shaped seam. The button that says "check my closed-form answer against real numerics" |
 | `v0.8.0` | **M7 — Measurement ingest** | scikit-rf dependency; NanoVNA/LiteVNA Touchstone import; measured SWR/impedance/S11 versus predicted, on one plot with separate provenance; match networks; cable-loss budgets |
 | `v0.9.0` | **M8 — On-sky characterization** | The loop closes: Y-factor Tsys, drift-scan beam maps, aperture efficiency and SEFD from a Sun or Cas A transit — computed from **jansky-observe observation bundles**, so a real antenna's measured beam lands beside the model's predicted beam |
 | `v0.10.0` | **M9 — Interactive UI** | FastAPI + htmx + a canvas module (the proven sibling stack): catalog browser, slider-driven design with live recompute, pattern plots, side-by-side design comparison. The moment the tool becomes pleasant rather than merely correct |

@@ -5,6 +5,55 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.7.0] — M6, Tier-2 method-of-moments validation
+
+The button that says *check that*. Everything before this is closed form; this solves the
+same antenna numerically, with a code that does not assume the flare is optimum, does not
+assume elements are uncoupled, and does not care what a textbook approximation was fitted to.
+
+### It closed both tickets M5 wrote
+- **The short-boom Yagi.** M5's endfire bound read **4.47 dBi** against a published 6.75 and
+  said plainly it would understate a short array. Tier 2 gives **6.49 dBi** — within 0.26 dB
+  of the published figure. That gap is the entire justification for having a second tier, and
+  it is now closed.
+- **The JOVE mutual coupling.** M5 overshot because pattern multiplication treats array
+  elements as independent. Tier 2 shows two dipoles stacking by **2.75 dB rather than the
+  ideal 3.01**, with the feed impedance shifting 17 ohms when the neighbour appears — the
+  coupling made directly visible rather than inferred. This is an *honest partial*
+  resolution: NASA's published pair implies about 2.0 dB, so the numerics recover roughly a
+  quarter of the discrepancy and the rest, probably ground interaction, is still open.
+
+### Added
+- `jansky_forge.mom`: a backend-neutral `WireModel`, the `MomBackend` protocol, and a
+  `pymininec` backend — pure Python, MIT, installs with no compiler on every platform.
+- **Feed impedance**, which Tier 1 structurally cannot produce. The 7-element GRAVES Yagi
+  comes out at 20 − 25j ohms, which is precisely why the published design uses a *folded*
+  driven element: four times that lands near 50.
+- Model builders for dipoles, arrays and Yagis **from real element geometry** — the tables
+  M5 recorded and could not use are now in `GRAVES_3EL_ELEMENTS` / `GRAVES_7EL_ELEMENTS`.
+- `to_nec_deck()`: NEC2 input as an **export**, not a linked solver. Same reasoning as M2
+  generating openEMS scripts — rigor without the GPL entanglement.
+- `check_segmentation()`, because too few segments per wavelength is the MoM mistake that
+  quietly produces a confident wrong answer.
+
+### Verified against
+- A half-wave dipole: **2.12 dBi and 69 ohms** against the textbook 2.15 and 73.
+- Reactance sign versus element length — short is capacitive, long is inductive — which is
+  the check that the solver is really solving rather than returning a plausible constant.
+- The 7-element GRAVES Yagi: **11.51 dBi** against a published 11.6.
+
+### Optional, and genuinely tested
+Tier 2 is `pip install jansky-forge[mom]`. Tier 1 is unchanged without it. The tests skip
+when the backend is absent — and **CI installs it so they run for real**, because a guard
+that only ever skips is not a guard.
+
+### Two bugs worth recording
+Reading `gain[..., 0]` from the solver returned a single polarization component rather than
+the total, which showed up as a *physically impossible negative peak gain* on a Yagi. And a
+test compared `|Z − 50|` when mismatch is a ratio: 20 and 80 ohms are nearly equidistant from
+50 by difference, but their SWRs are 2.5 and 1.6. Both are now commented where they happened.
+
+
 ## [0.6.0] — M5, Wire antennas & arrays
 
 Apertures were the easy half. Wire antennas are where the amateur bands live — Radio JOVE at

@@ -39,6 +39,13 @@ jobs:
       # dependency here (this package stays installable on its own), but a second
       # implementation that nobody compares is a second implementation that drifts — so
       # CI checks the course out and runs the cross-check for real instead of skipping it.
+      # Tier 2 is an optional extra, so its tests skip by default. A guard that only ever
+      # skips is not a guard — install it here and run the validation for real.
+      - name: Tier-2 method-of-moments validation (optional extra)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          uv pip install 'pymininec>=1.2'
+          uv run --no-sync pytest tests/test_mom.py -v
       - name: Checkout the jansky course (for the radiometer cross-check)
         if: matrix.os == 'ubuntu-latest'
         uses: actions/checkout@v4
@@ -49,7 +56,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           uv pip install ./jansky-course
-          uv run pytest tests/test_sensitivity.py -k course_cross_check -v
+          uv run --no-sync pytest tests/test_sensitivity.py -k course_cross_check -v
           uv pip uninstall jansky
       # The catalog's honesty rules are executable: any entry missing a source URL or
       # missing caveats on non-primary provenance fails the build.

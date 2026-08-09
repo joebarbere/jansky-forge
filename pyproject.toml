@@ -1,6 +1,6 @@
 [project]
 name = "jansky-forge"
-version = "0.6.0"
+version = "0.7.0"
 description = "Design, build, and characterize radio-astronomy antennas: instant analytic characterization, a catalog of known telescope builds, and fabrication artifacts. Sibling of the jansky course, jansky-research, and jansky-observe."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -32,6 +32,9 @@ dependencies = [
 
 [project.optional-dependencies]
 plot = ["matplotlib>=3.8"]
+# M6, Tier-2 validation. Optional on purpose: Tier 1 is the product and must install with
+# almost nothing. Note the distribution is "pymininec" while the import is "mininec".
+mom = ["pymininec>=1.2"]
 
 [project.urls]
 Homepage = "https://github.com/joebarbere/jansky-forge"
