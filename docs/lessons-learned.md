@@ -75,6 +75,23 @@ one, and each collapse is a bug that cannot be seen.
 
 ---
 
+## Review the fix, not just the code
+
+N0's first review found a factor-of-two physics error. The fix was correct — and introduced
+a regression that rejected every lossless matching network, because the corrected expression
+`|S21|²/(1 − |S22|²)` is a cancellation where the original `|S21|²` was not. A second pass
+over the fixes caught it, along with a docstring written backwards and an API whose default
+was quietly optimistic.
+
+A fix is written under time pressure, in a narrowed frame, by someone who has just been
+shown they were wrong. That is not the state in which to skip the check.
+
+Cheap habit: after fixing, ask what the *new* expression does at the boundaries the old one
+never reached. Cancellation, division by a term that can vanish, and a tolerance that was
+implicit before are the three that recur.
+
+---
+
 ## Disagreements are information; tuning them away destroys it
 
 Published figures live in `Template.published` as **cross-checks**, never restated as our
