@@ -5,6 +5,51 @@ between milestones** (see `plans/jansky_forge.md` §5).
 
 ## [Unreleased]
 
+## [0.8.0] — M7, Measurement ingest
+
+Every milestone so far produced a *prediction*. This one reads what a vector network
+analyser says about metal you actually built.
+
+### The invariant, made structural
+"Predicted and measured never wear the same label" has been honesty invariant 5 since M0.
+Here it stops being a slogan: `Comparison` has a `predicted_impedance_ohm` field and a
+`measured_impedance_ohm` field **and no third field combining them**. No corrected value, no
+blended estimate, no efficiency fitted to close the gap. A test asserts that no such field
+exists, so adding one later fails the suite — which is the point. If you want a single
+number you must choose which, and defend the choice.
+
+### Added
+- **Native Touchstone reading.** A `.s1p` is a header and three columns, and every NanoVNA
+  and LiteVNA writes one, so parsing it needs no dependency. All three data formats (RI, MA,
+  DB) and all four frequency units. Where `scikit-rf` is installed the test suite checks the
+  two readers agree — CI installs it so that runs rather than skipping.
+- **Reference-plane shifting**, which is the gotcha this module exists for. A VNA measures at
+  *its* port, and at VHF half a metre of coax rotates S11 most of the way round the Smith
+  chart. Ignoring it is the commonest reason a measurement "disagrees" with a model that was
+  in fact right.
+- **Diagnosis, not just numbers.** Reactance off while resistance agrees is a length error or
+  an un-de-embedded cable; resistance off is loss, ground, or something nearby the model does
+  not know about. `resonance_offset()` turns "resonant 2% low" into "shorten it by 2%", which
+  is the most actionable single number a VNA gives an antenna builder.
+- **L-network matching**, verified by *applying* the network to the load and checking a VNA
+  would see 50 ohms — re-deriving the design algebra would prove nothing. Loaded Q is
+  reported, and a sharp match says so.
+- **Cable loss** scaled from one datasheet figure by the square root of frequency, joined
+  back to M4: loss ahead of the LNA becomes kelvins of system temperature, loss after it is
+  nearly free.
+
+### Why no built-in cable table
+Coax specifications vary between manufacturers, and between the drum's label and the cable on
+it. A table of invented losses inside a noise budget would be an invented noise budget, so
+you supply the number from your own datasheet.
+
+### The toolchain now closes
+M6 predicts a feed impedance; M7 reads a measured one; the comparison says which is which and
+what the difference means. An end-to-end test synthesizes an antenna cut 2% long seen through
+half a metre of coax — the two commonest real discrepancies at once — and the tool separates
+them: de-embed the cable, then be told to shorten the element by 2%.
+
+
 ## [0.7.0] — M6, Tier-2 method-of-moments validation
 
 The button that says *check that*. Everything before this is closed form; this solves the
